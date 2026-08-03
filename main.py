@@ -15,6 +15,7 @@
 import argparse
 import asyncio
 import json
+import logging
 import re
 import sys
 from pathlib import Path
@@ -32,6 +33,13 @@ from utils import safe_filename
 from compile import compile_latex
 from latex_doc import (build_statement_tex, build_problem_doc,
                        build_combined_doc, build_build_script)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-7s %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("luogu2pdf")
 
 DEFAULT_CONFIG = ROOT / "contest.json"
 WORK_DIR = ROOT / ".work"
@@ -67,13 +75,21 @@ def parse_args():
 
 
 def load_config(path):
+    """读取并校验 contest.json；格式错误给出明确提示。"""
     if path.exists():
         cfg = json.loads(path.read_text(encoding="utf-8"))
     else:
         cfg = {}
     problems = cfg.get("problems", [])
-    if isinstance(problems, list):
-        cfg["problems"] = [p if isinstance(p, dict) else {"pid": p} for p in problems]
+    if not isinstance(problems, list):
+        sys.exit("错误：contest.json 的 problems 必须是列表")
+    cfg["problems"] = [p if isinstance(p, dict) else {"pid": p} for p in problems]
+    for p in cfg["problems"]:
+        if not re.match(r"^P\d+$", str(p.get("pid", ""))):
+            sys.exit(f"错误：题目号格式不正确：{p.get('pid')!r}（应为 P 开头，如 P17169）")
+    date = str(cfg.get("date", ""))
+    if date and not re.match(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}$", date):
+        log.warning("日期格式建议 YYYY-MM-DD：%s", date)
     return cfg
 
 
@@ -88,6 +104,9 @@ def merge_config(args, cfg):
     problems = cfg["problems"]
     if args.problems:
         problems = [{"pid": p.strip()} for p in args.problems.split(",") if p.strip()]
+        for p in problems:
+            if not re.match(r"^P\d+$", p["pid"]):
+                sys.exit(f"错误：题目号格式不正确：{p['pid']!r}")
     if not problems:
         sys.exit("错误：没有指定题目（请在 contest.json 中填写 problems，或用 --problems 指定）")
     return contest, problems
@@ -98,17 +117,17 @@ async def fetch_all(browser, problems, work_dir):
     datas = []
     for i, prob in enumerate(problems, 1):
         pid = prob["pid"]
-        print(f"\n[{i}/{len(problems)}] 抓取 {pid} ...", flush=True)
+        log.info("[%d/%d] 抓取 %s ...", i, len(problems), pid)
         try:
             data = await fetch_problem(browser, pid, work_dir)
             data.index = i
             data.english = prob.get("english", "")
             data.type = prob.get("type", "传统型")
             datas.append(data)
-            print(f"  完成: {data.title} | {data.time_limit} / "
-                  f"{data.memory_limit} | {len(data.samples)} 组样例")
+            log.info("  完成: %s | %s / %s | %d 组样例",
+              data.title, data.time_limit, data.memory_limit, len(data.samples))
         except Exception as e:
-            print(f"  失败: {e}")
+            log.error("  失败: %s", e)
     if not datas:
         sys.exit("\n错误：所有题目都抓取失败")
     return datas
@@ -134,9 +153,9 @@ async def run_html(browser, datas, contest, out_dir, args):
             html_path = WORK_DIR / f"problem_{pid}.html"
             html_path.write_text(html, encoding="utf-8")
             if args.keep_html:
-                print(f"\nHTML 已保存: {html_path}")
+                log.info("HTML 已保存: %s", html_path)
 
-            print(f"\n生成 PDF: {pid} ...", flush=True)
+            log.info("生成 PDF: %s ...", pid)
             page = await ctx.new_page()
             try:
                 await page.goto(html_path.as_uri(), wait_until="networkidle", timeout=60000)
@@ -151,14 +170,14 @@ async def run_html(browser, datas, contest, out_dir, args):
                     display_header_footer=True,
                 )
                 pdf_paths.append(pdf_path)
-                print(f"  完成: {pdf_path.name}")
+                log.info("  完成: %s", pdf_path.name)
             except Exception as e:
-                print(f"  失败: {e}")
+                log.error("  失败: %s", e)
             finally:
                 await page.close()
 
         if not args.no_merge:
-            print("\n生成合集 PDF ...", flush=True)
+            log.info("生成合集 PDF ...")
             try:
                 cover_body = build_cover_html(contest, datas)
                 sections = "\n".join(build_problem_section(d, contest) for d in datas)
@@ -178,11 +197,11 @@ async def run_html(browser, datas, contest, out_dir, args):
                         header_template=EMPTY_HEADER_HTML,
                         display_header_footer=True,
                     )
-                    print(f"  完成: {merge_path.name}")
+                    log.info("  完成: %s", merge_path.name)
                 finally:
                     await page.close()
             except Exception as e:
-                print(f"  合集失败: {e}")
+                log.error("  合集失败: %s", e)
     finally:
         await ctx.close()
     return pdf_paths
@@ -233,15 +252,15 @@ def run_latex(datas, contest, out_dir, args):
     pdf_paths = []
     for tname in tex_names:
         tex_path = tex_out / tname
-        print(f"\n编译 LaTeX: {tname} ...", flush=True)
+        log.info("编译 LaTeX: %s ...", tname)
         ok, pdf = compile_latex(tex_path, VENV_BIN)
         if ok:
             dest = out_dir / pdf.name
             shutil.copy(pdf, dest)
             pdf_paths.append(dest)
-            print(f"  完成: {dest.name}")
+            log.info("  完成: %s", dest.name)
         else:
-            print(f"  失败: {pdf}")
+            log.error("  失败: %s", pdf)
     return pdf_paths
 
 
@@ -253,10 +272,10 @@ async def run(args):
     out_dir = args.output_dir / safe_filename(contest.name)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"比赛: {contest.name} | {contest.date} | {contest.time}（{contest.duration}）")
-    print(f"题目: {', '.join(p['pid'] for p in problems)}")
-    print(f"输出: {out_dir}")
-    print(f"后端: {'LaTeX' if args.latex else 'HTML'}")
+    log.info("比赛: %s | %s | %s（%s）", contest.name, contest.date, contest.time, contest.duration)
+    log.info("题目: %s", ", ".join(p["pid"] for p in problems))
+    log.info("输出: %s", out_dir)
+    log.info("后端: %s", "LaTeX" if args.latex else "HTML")
 
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=True)
@@ -274,7 +293,7 @@ async def run(args):
 
     if not pdf_paths:
         sys.exit("\n错误：所有 PDF 生成失败")
-    print("\n全部完成。")
+    log.info("全部完成。")
 
 
 if __name__ == "__main__":
