@@ -228,7 +228,8 @@ def _split_hint_html(hint_html):
             cur_body.append(part)
     if cur_title or cur_body:
         out.append((cur_title, "".join(cur_body)))
-    return out
+    # 丢弃无标题且无实际内容（纯标签）的条目，如 h3 前的 lfe-marked wrap 开标签
+    return [(t, b) for t, b in out if t or re.search(r"\S", re.sub(r"<[^>]+>", "", b))]
 
 
 def _sections_html(problem):
