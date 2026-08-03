@@ -82,8 +82,9 @@ def _page_number_packet(page_no, total, page_w, page_h):
 
 
 def apply_overlay(pdf_in, pdf_out, contest_name, segments, total_pages):
-    """segments: [(起始页(0-based), 结束页(0-based), 题名)]，封面段题名为 None。"""
-    reader = PdfReader(str(pdf_in))
+    """segments: [(起始页(0-based), 结束页(0-based), 题名)]，封面段题名为 None。
+    pdf_in 可为路径或文件流。"""
+    reader = PdfReader(str(pdf_in)) if isinstance(pdf_in, (str, __import__("os").PathLike)) else PdfReader(pdf_in)
     writer = PdfWriter()
     for i, page in enumerate(reader.pages):
         w, h = page.mediabox.width, page.mediabox.height

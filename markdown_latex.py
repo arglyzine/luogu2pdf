@@ -243,6 +243,7 @@ def md_to_latex(md, images):
             def restore(m):
                 sub_kind, sub_items = _NESTED_TOKENS[int(m.group(1))]
                 rendered = [_inline(x, images) for x in sub_items]
+                rendered = [re.sub(r"\x00NL(\d+)\x00", restore, x) for x in rendered]
                 return _list_to_tex(sub_kind, rendered)
             items = [_inline(x, images) for x in content]
             items = [re.sub(r"\x00NL(\d+)\x00", restore, x) for x in items]

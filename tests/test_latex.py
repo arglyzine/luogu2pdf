@@ -177,3 +177,67 @@ def test_dashfix_keeps_other_hyphens():
 def test_display_wrap():
     assert "gather*" in _display_wrap("$$a\\\\b$$")
     assert "gather" not in _display_wrap("$$a$$")
+
+
+# ---------------- 嵌套列表 ----------------
+
+def test_nested_itemize():
+    md = """- 外层项
+  - 子项一
+  - 子项二
+- 第二外层项"""
+    out = md_to_latex(md, None)
+    assert out.count("begin{itemize}") == 2
+    assert out.count("end{itemize}") == 2
+
+
+def test_nested_item_inline_rendered():
+    # 嵌套子项内的粗体/公式必须转换（占位符恢复机制）
+    md = """- 外层
+  - 新边**可以**共端点。公式 $x^2$
+  - 子项二"""
+    out = md_to_latex(md, None)
+    assert "\\stress{可以}" in out
+    assert "$x^2$" in out
+    assert "**" not in out
+
+
+def test_nested_three_levels():
+    md = """- 一级
+  - 二级
+    - 三级"""
+    out = md_to_latex(md, None)
+    assert out.count("begin{itemize}") == 3
+
+
+def test_mixed_list_types_split():
+    # - 与 1. 混用时按类型拆开
+    md = """- 圆点项
+1. 数字项
+- 另一个圆点项"""
+    out = md_to_latex(md, None)
+    assert "begin{itemize}" in out and "begin{enumerate}" in out
+
+
+def test_enumerate_continuation_formula():
+    # P17170 样例解释：编号项后接缩进公式块（续行）
+    md = """1. 对第 $1$ 行异或 $3$，得到
+
+   $$
+   n=3,\\quad m=3\\\\
+   A=\\begin{pmatrix}1\\2\\3\\end{pmatrix}
+   $$
+
+2. 第 2 项"""
+    out = md_to_latex(md, None)
+    assert out.count("begin{enumerate}") == 1
+    assert "gather*" in out
+    assert "pmatrix" in out
+
+
+def test_nested_in_enumerate():
+    md = """1. 外层编号项
+   - 子圆点项
+2. 第二编号项"""
+    out = md_to_latex(md, None)
+    assert "begin{enumerate}" in out and "begin{itemize}" in out
