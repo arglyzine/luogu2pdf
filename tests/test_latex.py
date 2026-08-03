@@ -155,11 +155,11 @@ def test_split_hint_empty_body_skipped_later():
 # ---------------- 格式化工具 ----------------
 
 def test_fmt_time_range_pad_and_tilde():
-    assert fmt_time_range("9:00-13:00") == "09:00 $\\sim$ 13:00"
+    assert fmt_time_range("9:00-13:00") == "09:00 ～ 13:00"
 
 
 def test_fmt_time_range_full_width():
-    assert fmt_time_range("8:30～12:00") == "08:30 $\\sim$ 12:00"
+    assert fmt_time_range("8:30～12:00") == "08:30 ～ 12:00"
 
 
 def test_fmt_time_range_no_range():

@@ -12,14 +12,15 @@ def fmt_date(date_str):
 
 
 def fmt_time_range(raw):
-    """'9:00-13:00' -> '09:00 $\\sim$ 13:00'（补零 + 数学波浪号，两侧间距对称）。"""
+    """'9:00-13:00' -> '09:00 ～ 13:00'（补零 + 全角波浪，HTML 可直接显示；
+    LaTeX 后端需自行把 ～ 替换为 $\\sim$）。"""
     s = str(raw).strip().replace("~", "-").replace("～", "-")
     parts = re.split(r"\s*-\s*", s)
     if len(parts) == 2:
         def f(t):
             m = re.match(r"(\d{1,2}):(\d{2})", t.strip())
             return f"{int(m.group(1)):02d}:{m.group(2)}" if m else t.strip()
-        return f"{f(parts[0])} $\\sim$ {f(parts[1])}"
+        return f"{f(parts[0])} ～ {f(parts[1])}"
     return s
 
 

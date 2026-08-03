@@ -141,7 +141,7 @@ def build_cover_tex(contest, problems, images):
         m = re.match(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})", str(contest.date))
         date = (f"{m.group(1)} 年 {int(m.group(2))} 月 {int(m.group(3))} 日") if m else contest.date
         # 官方时间格式：08:30 ∼ 13:00（补零 + 波浪线）
-        t = fmt_time_range(contest.time)
+        t = fmt_time_range(contest.time).replace("～", "$\\sim$")
         duration = contest.duration
         time_line = f"\\fontsize{{15}}{{22}}\\selectfont \\rmfamily 时间：{date} {t}（{duration}）\n\\vskip 0.5em"
 
