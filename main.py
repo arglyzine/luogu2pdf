@@ -143,12 +143,47 @@ def pdf_name(data, out_dir):
 
 
 def header_html(left, right):
-    """Chromium headerTemplate：渲染在页边距区域，每页重复且不与正文重叠。"""
-    return f"""<div style="width:100%; font-size:10px; font-family:'Noto Serif CJK SC',serif;
-                color:#000; display:flex; justify-content:space-between;
-                border-bottom:1px solid #000; padding-bottom:2mm;">
-  <span>{left}</span><span style="font-weight:bold;">{right}</span>
+    """Chromium headerTemplate：渲染在页边距区域，每页重复且不与正文重叠。
+
+    内层 div 对齐版心（左右 27mm padding），横线不延伸到页面两端。
+    """
+    return f"""<div style="width:100%; padding:0 76.5pt; box-sizing:border-box;">
+  <div style="display:flex; justify-content:space-between; border-bottom:1px solid #000;
+              padding-bottom:2mm; font-size:10px; font-family:'Noto Serif CJK SC',serif; color:#000;">
+    <span>{left}</span><span style="font-weight:bold;">{right}</span>
+  </div>
 </div>"""
+
+
+def split_segments_by_problems(pdf_path, datas):
+    """按题目名 h1 标题（17pt 大字号，正文/节标题不干扰）定位每题起始页。
+    返回 [(起页, 止页, 题名)]（0-based）。"""
+    import fitz
+    doc = fitz.open(pdf_path)
+    total = len(doc)
+    page_big_text = []
+    for i in range(total):
+        big = "".join(s["text"] for b in doc[i].get_text("dict")["blocks"]
+                      for l in b.get("lines", []) for s in l["spans"]
+                      if s["size"] >= 15)
+        page_big_text.append(big)
+    starts = []
+    for d in datas:
+        found = None
+        for i in range(1, total):
+            if d.title in page_big_text[i]:
+                found = i
+                break
+        starts.append(found)
+    segs = []
+    for k, d in enumerate(datas):
+        s = starts[k]
+        if s is None:
+            continue
+        e = starts[k + 1] - 1 if k + 1 < len(starts) and starts[k + 1] is not None else total - 1
+        en = d.english_name
+        segs.append((s, e, f"{d.title}（{en}）" if en else d.title))
+    return segs
 
 
 async def run_html(browser, datas, contest, out_dir, args):
@@ -204,10 +239,14 @@ async def run_html(browser, datas, contest, out_dir, args):
                         path=str(merge_path), format="A4", print_background=True,
                         margin={"top": "25mm", "bottom": "20mm",
                                 "left": "27mm", "right": "27mm"},
-                        footer_template=FOOTER_HTML,
-                        header_template=header_html(dashfix(contest.name), ""),
+                        header_template="<div></div>", footer_template="<div></div>",
                         display_header_footer=True,
                     )
+                    # 按题分段叠加页眉（右侧题名）与全局页码（第 1 页封面无页眉页码）
+                    from overlay import apply_overlay
+                    segs = split_segments_by_problems(merge_path, datas)
+                    total = __import__("pypdf").PdfReader(str(merge_path)).get_num_pages()
+                    apply_overlay(merge_path, merge_path, contest.name, segs, total)
                     log.info("  完成: %s", merge_path.name)
                 finally:
                     await page.close()
