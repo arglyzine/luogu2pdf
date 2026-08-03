@@ -113,8 +113,22 @@ cd output/2026-08-03-模拟赛/tex
 
 ## 实现说明
 
+```
+main.py             CLI 入口：配置合并、抓取编排、双后端分发
+model.py            Problem/Contest 数据模型
+luogu.py            抓取（assets/extract.js 页面提取脚本）
+template.py         HTML 后端（templates/*.html.j2 + style.css.j2）
+markdown_latex.py   Markdown→LaTeX 转换器
+latex_doc.py        LaTeX 文档组装（templates/*.tex.j2）
+compile.py          xelatex 编译
+utils.py            共享格式化工具
+tests/              pytest 单元测试（38 个用例）
+```
+
 - 数据源：洛谷页面内嵌的 `#lentille-context` JSON，题面为 Markdown 源，
   公式即 LaTeX 源码；HTML 后端复用页面渲染好的 KaTeX。
+- 模板用 Jinja2（`templates/`）：改样式/版式直接编辑模板文件，
+  不需要动 Python 代码。
 - **不暴露洛谷题号**：标题、页眉、封面、文件名均不出现题号；
   英文名用 `problems[].english`（如 `"past"`），未配置时标题只显示中文名，
   封面可执行文件名用 `t1`/`t2` 等编号。
