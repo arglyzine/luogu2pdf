@@ -9,9 +9,10 @@
 """
 
 import re
-import string
 from html import escape
 from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader
 
 from utils import fmt_date, fmt_time_range, fmt_time_limit, fmt_memory
 
@@ -20,96 +21,10 @@ KATEX_CSS = ROOT / "assets" / "katex" / "katex.min.css"
 KATEX_FONTS = ROOT / "assets" / "katex" / "fonts"
 SERIF_FONT = ROOT / "assets" / "fonts" / "NotoSerifCJKsc-Regular.otf"
 
-BASE_CSS = string.Template("""
-@font-face {
-  font-family: 'Noto Serif CJK SC';
-  src: url('$serif_font');
-  font-weight: normal; font-style: normal;
-}
-@page { size: A4; }
-html, body { margin: 0; padding: 0; }
-body {
-  font-family: 'Noto Serif CJK SC', 'Noto Sans CJK SC', 'Source Han Serif SC', serif;
-  font-size: 12pt; line-height: 1.6; color: #000;
-}
-/* ---- 页眉（fixed 元素在 Chromium 打印时每页重复） ---- */
-.page-header {
-  position: fixed; top: 0; left: 0; right: 0;
-  display: flex; justify-content: space-between; align-items: baseline;
-  font-size: 10pt; padding: 0 0 1.5mm;
-  border-bottom: 1pt solid #000; background: #fff; z-index: 10;
-}
-body.with-header { padding-top: 12mm; }
-.page-header .right { font-weight: bold; }
-/* 合集中的流式页眉（仅每节首页显示） */
-.flow-header {
-  display: flex; justify-content: space-between; align-items: baseline;
-  font-size: 10pt; padding: 2mm 0 1.5mm; margin: 0 0 4mm;
-  border-bottom: 1pt solid #000;
-}
-.flow-header .right { font-weight: bold; }
-/* ---- 标题（黑体，参考 OI-statement-LaTeX 的 \Large\sf） ---- */
-h1.title {
-  text-align: center; font-size: 17pt; font-weight: bold;
-  margin: 10mm 0 12mm;
-  font-family: 'Noto Sans CJK SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-/* ---- 节标题（黑体不加粗，字号比正文大一号，参考官方题面） ---- */
-h2.sec {
-  font-size: 14pt; font-weight: normal; text-align: left;
-  margin: 7mm 0 3mm; text-indent: 1em;
-  font-family: 'Noto Sans CJK SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-/* ---- 正文内容（匹配洛谷提取的 .lfe-marked 容器） ---- */
-.lfe-marked p { text-indent: 2em; margin: 1.5mm 0; }
-.lfe-marked ul, .lfe-marked ol { margin: 1.5mm 0; padding-left: 8mm; }
-.lfe-marked li { margin: 0.5mm 0; }
-.lfe-marked table { border-collapse: collapse; margin: 2.5mm auto; border-top: 2pt solid #000; border-bottom: 2pt solid #000; }
-/* 注意：Chromium 打印会丢弃 <1px 的 border，细线用 1px */
-.lfe-marked th, .lfe-marked td { padding: 1mm 4mm; border-left: 1px solid #000; border-right: 1px solid #000; }
-.lfe-marked th { border-bottom: 1.5pt solid #000; font-weight: normal; }
-.lfe-marked td { border-bottom: 1px solid #000; }
-.lfe-marked tr:last-child td { border-bottom: none; }
-/* 去掉左右边界竖线（列间线保留） */
-.lfe-marked tr > :first-child { border-left: none; }
-.lfe-marked tr > :last-child { border-right: none; }
-/* 数据范围表无特殊处理（样式已统一） */
-.lfe-marked code {
-  font-family: 'DejaVu Sans Mono', 'Noto Sans Mono CJK SC', monospace;
-  font-size: 10.5pt;
-}
-.lfe-marked img { max-width: 88%; display: block; margin: 2.5mm auto; }
-.lfe-marked blockquote { margin: 2mm 0; padding: 0 4mm; border-left: 2pt solid #999; }
-.lfe-marked .katex-display { margin: 3mm 0; }
-/* 强调文字：加粗 + 着重号（官方 \stress 风格） */
-.lfe-marked strong {
-  font-weight: bold;
-  text-emphasis: filled dot;
-  -webkit-text-emphasis: filled dot;
-  text-emphasis-position: under;
-  -webkit-text-emphasis-position: under;
-}
-/* ---- 样例框（蓝色细边框，参考 tcolorbox colframe=blue, boxrule=0.5pt） ---- */
-pre.sample {
-  border: 0.5pt solid #2E74B5; padding: 2mm 3.5mm; margin: 1.5mm 0 4mm;
-  white-space: pre-wrap; word-break: break-all;
-  font-family: 'DejaVu Sans Mono', 'Noto Sans Mono CJK SC', monospace;
-  font-size: 10.5pt; line-height: 1.6;
-}
-.ln { color: #808080; user-select: none; }
-/* ---- 封面 ---- */
-.cover-title { text-align: center; font-size: 20pt; font-weight: bold; margin: 14mm 0 4mm; }
-.cover-subtitle { text-align: center; font-size: 14pt; font-weight: bold; margin: 0 0 3mm; }
-.cover-time { text-align: center; font-size: 12pt; margin: 0 0 8mm; }
-table.cover { border-collapse: collapse; margin: 0 auto 8mm; }
-table.cover th, table.cover td { border: 0.75pt solid #000; padding: 1.5mm 4mm; font-size: 11pt; }
-table.cover th { font-weight: bold; white-space: nowrap; }
-table.cover td { text-align: center; }
-.cover-section { text-align: center; font-size: 12pt; font-weight: bold; margin: 4mm 0 1.5mm; }
-.cover-line { text-align: center; font-size: 11pt; margin: 0 0 2mm; }
-ol.cover-notes { font-size: 10.5pt; margin: 1mm auto 0; max-width: 165mm; }
-ol.cover-notes li { margin: 0.5mm 0; }
-""")
+_env = Environment(loader=FileSystemLoader(ROOT / "templates"), autoescape=False)
+BASE_CSS = _env.get_template("style.css.j2")
+
+BASE_CSS_TEMPLATE = None  # 延迟加载
 
 KATEX_ESCAPE = None
 
@@ -123,7 +38,7 @@ def _katex_css():
 
 
 def _base_style(with_header):
-    css = BASE_CSS.substitute(serif_font=SERIF_FONT.resolve().as_uri())
+    css = BASE_CSS.render(serif_font=SERIF_FONT.resolve().as_uri())
     if not with_header:
         css += "\n.page-header { display: none; }\n"
     return "<style>" + css + _katex_css() + "</style>"
@@ -253,24 +168,14 @@ def build_problem_html(problem, contest, index, total):
     title = problem.title
     en = problem.english_name
     title_html = f"{escape(title)}（{escape(en)}）" if en else escape(title)
-    head = f"""
-<div class="page-header"><span>{escape(contest.name)}</span><span class="right">{title_html}</span></div>
-<h1 class="title">{title_html}</h1>
-"""
     body = _sections_html(problem)
-    return f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<title>第{index}题 {escape(title)}</title>
-{_base_style(with_header=True)}
-</head>
-<body class="with-header">
-{head}
-{body}
-</body>
-</html>
-"""
+    return _env.get_template("problem.html.j2").render(
+        doc_title=f"第{index}题 {escape(title)}",
+        style=_base_style(with_header=True),
+        contest_name=escape(contest.name),
+        title_html=title_html,
+        body=body,
+    )
 
 
 def build_problem_section(problem, contest):
@@ -284,6 +189,7 @@ def build_problem_section(problem, contest):
 <h1 class="title">{title_html}</h1>
 """
     return head + _sections_html(problem)
+# (build_problem_section 保留 Python 拼接：页眉/标题组合，模板化收益低)
 
 
 def build_cover_html(contest, problems):
@@ -332,30 +238,19 @@ def build_cover_html(contest, problems):
     ]
     notes_html = "".join(f"<li>{escape(n)}</li>" for n in notes)
 
-    body = f"""
-<div class="cover-title">{escape(contest.name)}</div>
-{time_line}
-{table}
-<div class="cover-section">注意事项（请仔细阅读）</div>
-<ol class="cover-notes">
-{notes_html}
-</ol>
-"""
-    return body
+    return _env.get_template("cover.html.j2").render(
+        contest_name=escape(contest.name),
+        time_line=time_line,
+        table=table,
+        notes_html=notes_html,
+    )
 
 
 def build_combined_html(contest, problems, cover_html, sections_html):
     """合集 HTML：封面 + 各题片段，页码连续。"""
-    return f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<title>{escape(contest.name)}</title>
-{_base_style(with_header=False)}
-</head>
-<body>
-{cover_html}
-{sections_html}
-</body>
-</html>
-"""
+    return _env.get_template("combined.html.j2").render(
+        doc_title=escape(contest.name),
+        style=_base_style(with_header=False),
+        cover_html=cover_html,
+        sections_html=sections_html,
+    )

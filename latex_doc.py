@@ -6,10 +6,15 @@ from utils import fmt_time_range, dashfix
 import os
 import re
 from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader
+
 from markdown_latex import md_to_latex, _escape_special
 from utils import fmt_time_range, dashfix
 
 ROOT = Path(__file__).resolve().parent
+
+_env = Environment(loader=FileSystemLoader(ROOT / "templates"), autoescape=False)
 
 
 def _split_hint(hint):
@@ -78,7 +83,7 @@ def build_statement_tex(problem, contest, index, total, images):
 def _sample_block(text):
     """样例 → minted（行号 + tcolorbox 蓝框）。"""
     escaped = text.rstrip("\n").replace("\\", r"\textbackslash{}")
-    return (r"\begin{minted}[linenos]{text}" + "\n" + escaped + "\n" + "\\end{minted}")
+    return _env.get_template("sample.tex.j2").render(content=escaped)
 
 
 def build_cover_tex(contest, problems, images):
@@ -151,55 +156,22 @@ def build_cover_tex(contest, problems, images):
     ]
     notes_tex = "\n".join(r"    \item " + _escape_special(n) for n in notes)
 
-    return f"""\\begin{{titlepage}}
-\\vspace*{{-20mm}}
-\\begin{{center}}
-{{\\fontsize{{22}}{{32}}\\selectfont \\heiti {dashfix(contest.name)}}}\\\\
-\\vskip 0.6em
-{time_line}
-\\vskip 0.8em
-\\end{{center}}
-
-{table}
-
-{{\\noindent\\hspace*{{1.5em}}\\rmfamily 提交源程序文件名}}\\par
-{src_table}
-
-{{\\noindent\\hspace*{{1.5em}}\\rmfamily 编译选项}}\\par
-{compile_table}
-
-{{\\noindent\\hspace*{{1.5em}}\\stress{{注意事项（请仔细阅读）}}}}\\par
-\\begin{{enumerate}}
-{notes_tex}
-\\end{{enumerate}}
-\\end{{titlepage}}
-"""
-
-
-_PREAMBLE = """\\documentclass{statement}
-\\usepackage{tikz}
-\\usepackage{ulem}
-\\usepackage{tabularx}
-\\usepackage{makecell}
-\\usepackage{tabularray}
-\\usepackage{color}
-\\usepackage{xcolor}
-\\usepackage{hyperref}
-\\usepackage{minted}
-
-\\title{__TITLE__}
-\\date{}
-
-\\begin{document}
-__BODY__
-\\end{document}
-"""
+    return _env.get_template("cover.tex.j2").render(
+        contest_name=dashfix(contest.name),
+        time_line=time_line,
+        table=table,
+        src_table=src_table,
+        compile_table=compile_table,
+        notes_tex=notes_tex,
+    )
 
 
 def build_problem_doc(contest, index, total, body_rel):
     """单题完整文档：preamble + \input 引用题面 body（可独立编译）。"""
-    title = dashfix(contest.name)
-    return _PREAMBLE.replace("__TITLE__", title).replace("__BODY__", f"\\input{{{body_rel}}}")
+    return _env.get_template("problem_doc.tex.j2").render(
+        title=dashfix(contest.name),
+        body=f"\\input{{{body_rel}}}",
+    )
 
 
 def build_combined_doc(contest, problems, images, body_rels):
@@ -208,32 +180,17 @@ def build_combined_doc(contest, problems, images, body_rels):
     # 封面占第 1 页（无页码），正文从第 2 页开始（与官方一致）
     sections = "\n\n\\newpage\n\n".join(f"\\input{{{r}}}" for r in body_rels)
     body = cover + "\n\n\\setcounter{page}{2}\n\n\\newpage\n\n" + sections
-    title = dashfix(contest.name)
-    return _PREAMBLE.replace("__TITLE__", title).replace("__BODY__", body)
+    return _env.get_template("problem_doc.tex.j2").render(
+        title=dashfix(contest.name),
+        body=body,
+    )
 
 
 def build_build_script(tex_out):
     """生成 tex/ 目录的一键编译脚本：重新生成全部（题数 + 1 个 PDF）。"""
     # 相对路径找到项目 .venv（tex -> 比赛名 -> output -> 项目根）
     venv = os.path.relpath(ROOT / ".venv" / "bin", tex_out).replace("\\", "/")
-    return f"""#!/usr/bin/env bash
-# 一键重新编译全部题面：每道题 + 合集，共 {{$(ls *.tex | wc -l)}} 个 PDF
-set -euo pipefail
-cd "$(dirname "$0")"
-
-# minted 需要 pygmentize，优先使用项目 .venv 的版本
-export PATH="$(pwd)/{venv}:$PATH"
-
-for f in *.tex; do
-  xelatex -shell-escape -interaction=nonstopmode -halt-on-error "$f" >/dev/null 2>&1 || true
-done
-for f in *.tex; do
-  xelatex -shell-escape -interaction=nonstopmode -halt-on-error "$f"
-done
-# 把生成的 PDF 复制到上级目录（output/<比赛名>/）
-cp *.pdf ..
-echo "完成：生成 $(ls *.pdf | wc -l) 个 PDF（已复制到上级目录）"
-"""
+    return _env.get_template("build.sh.j2").render(venv=venv)
 
 
 # ---------------- 编译 ----------------

@@ -5,7 +5,11 @@ import re
 import urllib.request
 from pathlib import Path
 
+from jinja2 import Environment, FileSystemLoader
+
 ROOT = Path(__file__).resolve().parent
+
+_env = Environment(loader=FileSystemLoader(ROOT / "templates"), autoescape=False)
 
 
 _MATH_DISPLAY_RE = re.compile(r"\$\$[\s\S]*?\$\$")
@@ -258,13 +262,7 @@ def _table_to_latex(rows):
 
     # 3) tabularray 输出：colspec 的 | 只画列间竖线（首尾不加 = 无边界竖线）
     #    \begin{center}：居中并保留上下间距（超宽表格的特殊处理由使用者自行调整）
-    out = [r"\begin{center}\begin{tblr}{",
-           "  colspec = {" + "c|" * (ncols - 1) + "c},",
-           "  hlines,",
-           "  hline{1} = {2pt},",
-           "  hline{2} = {1.5pt},",
-           "  hline{Z} = {2pt},",
-           "}"]
+    rows = []
     for r in range(nrows):
         parts = []
         for c in range(ncols):
@@ -274,9 +272,11 @@ def _table_to_latex(rows):
                 parts.append(f"\\SetCell[r={span[r][c]}]{{c}}{_inline(cells[r][c], images=None)}")
             else:
                 parts.append(_inline(cells[r][c], images=None))
-        out.append("  " + " & ".join(parts) + r" \\")
-    out.append(r"\end{tblr}\end{center}")
-    return "\n".join(out)
+        rows.append("  " + " & ".join(parts) + r" \\")
+    return _env.get_template("tblr.tex.j2").render(
+        colspec="c|" * (ncols - 1) + "c",
+        rows="\n".join(rows),
+    )
 
 
 # ---------------- 题面生成 ----------------

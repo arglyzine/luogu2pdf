@@ -138,8 +138,8 @@ def pdf_name(data, out_dir):
     en = data.english_name
     title = safe_filename(data.title)
     if en:
-        return out_dir / f"第{data['index']}题-{safe_filename(en)}-{title}.pdf"
-    return out_dir / f"第{data['index']}题-{title}.pdf"
+        return out_dir / f"第{data.index}题-{safe_filename(en)}-{title}.pdf"
+    return out_dir / f"第{data.index}题-{title}.pdf"
 
 
 async def run_html(browser, datas, contest, out_dir, args):

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# 一键重新编译全部题面：每道题 + 合集，共 {{ '{{' }}$(ls *.tex | wc -l){{ '}}' }} 个 PDF
+set -euo pipefail
+cd "$(dirname "$0")"
+
+# minted 需要 pygmentize，优先使用项目 .venv 的版本
+export PATH="$(pwd)/{{ venv }}:$PATH"
+
+for f in *.tex; do
+  xelatex -shell-escape -interaction=nonstopmode -halt-on-error "$f" >/dev/null 2>&1 || true
+done
+for f in *.tex; do
+  xelatex -shell-escape -interaction=nonstopmode -halt-on-error "$f"
+done
+# 把生成的 PDF 复制到上级目录（output/<比赛名>/）
+cp *.pdf ..
+echo "完成：生成 $(ls *.pdf | wc -l) 个 PDF（已复制到上级目录）"
