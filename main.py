@@ -26,7 +26,7 @@ sys.path.insert(0, str(ROOT))
 from playwright.async_api import async_playwright
 
 from luogu import fetch_problem
-from model import Contest, Problem
+from model import Contest
 from template import (build_cover_html, build_problem_html,
                       build_problem_section, build_combined_html)
 from utils import safe_filename, dashfix
@@ -52,8 +52,6 @@ FOOTER_HTML = """
   第 <span class="pageNumber"></span> 页　共 <span class="totalPages" style="color:#2E74B5;"></span> 页
 </div>
 """
-
-EMPTY_HEADER_HTML = "<div></div>"
 
 
 def parse_args():

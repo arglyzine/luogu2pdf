@@ -143,8 +143,9 @@ template.py         HTML 后端（templates/*.html.j2 + style.css.j2）
 markdown_latex.py   Markdown→LaTeX 转换器
 latex_doc.py        LaTeX 文档组装（templates/*.tex.j2）
 compile.py          xelatex 编译
+overlay.py          HTML 合集后处理：按题叠加页眉/页码（reportlab）
 utils.py            共享格式化工具
-tests/              pytest 单元测试（38 个用例）
+tests/              pytest 单元测试（55 个用例）
 ```
 
 - 数据源：洛谷页面内嵌的 `#lentille-context` JSON，题面为 Markdown 源，
@@ -159,7 +160,13 @@ tests/              pytest 单元测试（38 个用例）
   样例 →【样例 N 输入/输出】（minted 行号 + 蓝色边框）；
   说明/提示按 `###` 小标题拆分：【样例 N 解释】独立成节、
   数据范围内容标为【数据范围】。
-- **表格**：三线表（booktabs，顶部粗线、表头下细线、底部粗线、无竖线）。
+- **表格**：tabularray 渲染——列间竖线（左右边界无线）、顶/底/表头
+  粗线、行间细线；`^` 标记（与上一行同列相同）纵向合并单元格。
 - 输入输出默认标准 IO（【输入格式】节注明「从标准输入中读入数据。」）。
+- **页眉**：单题用 Chromium headerTemplate（页边距区域，每页重复）；
+  HTML 合集因无法按题动态页眉，生成后用 `overlay.py`（reportlab）
+  按题分段叠加「比赛名 | 题名」页眉与全局页码（封面无页眉页码）。
 - 封面表格列数随题目数自动调整，时限/内存取各测试点的最大值。
 - 中间产物（原始 JSON、TeX）在 `.work/`，可随时删除。
+- 测试：`pytest tests/` 共 55 个用例；`test_integration.py` 依赖
+  `.work/raw_*.json`（先运行过一次抓取），缺失时自动跳过。

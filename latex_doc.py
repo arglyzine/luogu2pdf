@@ -31,7 +31,7 @@ def _split_hint(hint):
 
 
 def build_statement_tex(problem, contest, index, total, images):
-    """生成单个题目的 .tex 内容（\section 形式，合集或单题共用；模板循环渲染）。"""
+    """生成单个题目的 .tex 内容（section 形式，合集或单题共用；模板循环渲染）。"""
     parts = []
     content = problem.content
     name = content.get("name", problem.pid)
@@ -165,14 +165,14 @@ def build_cover_tex(contest, problems, images):
 
 
 def build_problem_doc(contest, index, total, body_rel):
-    """单题完整文档：preamble + \input 引用题面 body（可独立编译）。"""
+    """单题完整文档：preamble + input 引用题面 body（可独立编译）。"""
     return _env.get_template("problem_doc.tex.j2").render(
         title=dashfix(contest.name),
         body=f"\\input{{{body_rel}}}",
     )
 
 def build_combined_doc(contest, problems, images, body_rels):
-    """合集完整文档：封面 + \input 各题面 body（修改题面后合集同步更新）。"""
+    """合集完整文档：封面 + input 各题面 body（修改题面后合集同步更新）。"""
     cover = build_cover_tex(contest, problems, images)
     # 封面占第 1 页（无页码），正文从第 2 页开始（与官方一致）
     sections = "\n\n\\newpage\n\n".join(f"\\input{{{r}}}" for r in body_rels)

@@ -258,13 +258,13 @@ def md_to_latex(md, images):
 
 
 def _table_to_latex(rows):
-    """markdown 表格 → 官方风格表格（tabularray）。
+    """markdown 表格转官方风格表格（tabularray）。
 
     - 列间竖线（vlines），左右边界无竖线
-    - 顶/底/表头下粗线（hline{1}/{2}/{Z}），行间细线（hlines）
+    - 顶/底/表头下粗线（hline 1/2/Z），行间细线（hlines）
     - 仅 ^ 标记处合并：^ 表示「与上一行同列相同」，其所在行与来源行
-      纵向合并（\SetCell[r=N]）；普通相同值不合并
-    - tabularray 自动跳过合并区域内的线（无 \cline/\multirow 兼容问题）
+      纵向合并（SetCell[r=N]）；普通相同值不合并
+    - tabularray 自动跳过合并区域内的线（无 cline/multirow 兼容问题）
     """
     cells = [re.split(r"(?<!\\)\|", r[1:-1] if r.startswith("|") else r) for r in rows]
     cells = [[c.strip() for c in row] for row in cells]

@@ -14,7 +14,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from utils import fmt_date, fmt_time_range, fmt_time_limit, fmt_memory, dashfix
+from utils import fmt_date, fmt_time_range, fmt_memory, dashfix
 
 ROOT = Path(__file__).resolve().parent
 KATEX_CSS = ROOT / "assets" / "katex" / "katex.min.css"
