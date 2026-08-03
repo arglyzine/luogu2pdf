@@ -161,11 +161,13 @@ def split_segments_by_problems(pdf_path, datas):
     import fitz
     doc = fitz.open(pdf_path)
     total = len(doc)
+    # h1 标题实测 17.22pt，节标题 14.35pt：取 16.5 只匹配题名标题，
+    # 给字体渲染留缓冲又不误匹配节标题/公式
     page_big_text = []
     for i in range(total):
         big = "".join(s["text"] for b in doc[i].get_text("dict")["blocks"]
                       for l in b.get("lines", []) for s in l["spans"]
-                      if s["size"] >= 15)
+                      if s["size"] >= 16.5)
         page_big_text.append(big)
     starts = []
     for d in datas:
