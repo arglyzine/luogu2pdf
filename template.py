@@ -136,6 +136,8 @@ def _sections_html(problem):
             if not hbody.strip():
                 continue
             m = re.search(r"样例\s*(\d+)\s*解释", htitle)
+            # hint 拆分出的片段无 .lfe-marked 包装，补一层以应用正文缩进等样式
+            hbody = f'<div class="lfe-marked">{hbody}</div>'
             if "解释" in htitle and "样例" in htitle:
                 n = m.group(1) if m else (1 if samples else 1)
                 parts.append({"title": f"样例 {n} 解释", "content": hbody, "cls": "marked"})
