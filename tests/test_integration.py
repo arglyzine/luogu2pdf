@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from latex import md_to_latex, _split_hint, _table_to_latex
+from markdown_latex import md_to_latex, _table_to_latex
+from latex_doc import _split_hint
 
 WORK = Path(__file__).resolve().parent.parent / ".work"
 

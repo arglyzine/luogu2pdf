@@ -1,0 +1,282 @@
+"""Markdown→LaTeX 转换器：洛谷题面 Markdown 源转 LaTeX 源码。"""
+
+import os
+import re
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+
+
+_MATH_DISPLAY_RE = re.compile(r"\$\$[\s\S]*?\$\$")
+_MATH_RE = re.compile(r"\$[^$\n]+\$")
+
+
+def _protect(text, regex, tokens):
+    """把匹配内容替换为占位符，返回 (处理后的文本, 列表)。"""
+    def repl(m):
+        tokens.append(m.group(0))
+        return f"\x00M{len(tokens) - 1}\x00"
+    return regex.sub(repl, text), tokens
+
+
+def _protect_math(text, tokens):
+    """先保护 $$..$$ 多行公式，再保护 $..$ 行内公式。"""
+    text, tokens = _protect(text, _MATH_DISPLAY_RE, tokens)
+    text, tokens = _protect(text, _MATH_RE, tokens)
+    return text, tokens
+
+
+def _display_wrap(text):
+    """$$...$$ 含 \\\\ 时转 gather* 环境（display math 的 \\ 不换行）。"""
+    def repl(m):
+        body = m.group(1)
+        if "\\\\" in body:
+            return "\\begin{gather*}" + body + "\\end{gather*}"
+        return m.group(0)
+    return re.sub(r"\$\$([\s\S]*?)\$\$", repl, text)
+
+
+def _restore(text, tokens):
+    return re.sub(r"\x00M(\d+)\x00", lambda m: tokens[int(m.group(1))], text)
+
+
+def _escape_special(text):
+    """转义 LaTeX 特殊字符（公式已被占位保护）。"""
+    out = []
+    for ch in text:
+        if ch == "\\":
+            out.append(r"\textbackslash{}")
+        elif ch in "#%&_{}":
+            out.append("\\" + ch)
+        elif ch == "~":
+            out.append(r"\textasciitilde ")
+        elif ch == "^":
+            out.append(r"\textasciicircum ")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _fix_math(text):
+    """洛谷 markdown 表头常写未闭合的 $n，$ 数为奇数时自动补全。"""
+    if "$" in text and text.count("$") % 2 == 1:
+        return text + "$"
+    return text
+
+
+def _inline(text, images):
+    """行内标记转换：公式保护 → 图片/链接/代码 → 转义 → 粗斜体。"""
+    tokens = []
+    text, tokens = _protect_math(text, tokens)
+    text = _fix_math(text)
+    text, tokens = _protect_math(text, tokens)
+    # 图片先占位（生成的 LaTeX 命令需在转义之后展开）
+    img_tokens = []
+    def img_repl(m):
+        url = m.group(2)
+        alt = m.group(1)
+        local = _download_image(url, images)
+        if local:
+            img_tokens.append(
+                r"\begin{center}\includegraphics[width=0.8\textwidth]{" + local + r"}\end{center}")
+            return f"\x00I{len(img_tokens) - 1}\x00"
+        return alt or ""
+    text = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", img_repl, text)
+    # 链接 [text](url)
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    # 行内代码 `x`：先占位（生成的 \texttt 需在转义后展开）
+    code_tokens = []
+    def code_repl(m):
+        code_tokens.append(m.group(1))
+        return f"\x00C{len(code_tokens) - 1}\x00"
+    text = re.sub(r"`([^`]+)`", code_repl, text)
+    # 转义非公式部分（反斜杠、特殊字符）；未配对的 $ 转义为文本
+    text = _escape_special(text)
+    text = text.replace("$", r"\textdollar{}")
+    # 恢复公式、图片与代码
+    text = _restore(text, tokens)
+    text = re.sub(r"\x00I(\d+)\x00", lambda m: img_tokens[int(m.group(1))], text)
+    text = re.sub(r"\x00C(\d+)\x00",
+                  lambda m: r"\texttt{" + _escape_special(code_tokens[int(m.group(1))]) + "}",
+                  text)
+    # 粗体 **x** → \stress（加粗 + 着重号，官方强调风格）；含公式/命令时退回 \textbf
+    def bold_repl(m):
+        t = m.group(1)
+        if "$" in t or "\\" in t:
+            return r"\textbf{" + t + "}"
+        return r"\stress{" + t + "}"
+    text = re.sub(r"\*\*([^*]+)\*\*", bold_repl, text)
+    # 斜体 *x*
+    text = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"\\textit{\1}", text)
+    # $$..$$ 多行公式转 gather*（须在粗斜体处理后，避免 * 被误判）
+    text = _display_wrap(text)
+    return text
+
+
+def _download_image(url, images):
+    """下载题面图片到 .work/img/，返回相对文件名；失败返回 None。"""
+    try:
+        name = re.sub(r"[^A-Za-z0-9._-]", "_", url.split("/")[-1])
+        img_dir = images or (ROOT / ".work" / "latex" / "img")
+        img_dir.mkdir(parents=True, exist_ok=True)
+        dest = img_dir / name
+        if not dest.exists():
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            dest.write_bytes(urllib.request.urlopen(req, timeout=60).read())
+        return dest.resolve().as_posix()
+    except Exception:
+        return None
+
+
+def _split_blocks(md):
+    """按行把 markdown 分成块：(类型, 内容)。"""
+    blocks = []
+    lines = md.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if not line.strip():
+            i += 1
+            continue
+        if line.lstrip().startswith("```"):
+            code = []
+            i += 1
+            while i < len(lines) and not lines[i].lstrip().startswith("```"):
+                code.append(lines[i])
+                i += 1
+            i += 1
+            blocks.append(("code", "\n".join(code)))
+        elif re.match(r"^\s*\|", line):
+            tbl = []
+            while i < len(lines) and re.match(r"^\s*\|", lines[i]):
+                tbl.append(lines[i].strip())
+                i += 1
+            blocks.append(("table", tbl))
+        elif re.match(r"^\s*[-*]\s+", line):
+            items = []
+            while i < len(lines) and re.match(r"^\s*[-*]\s+", lines[i]):
+                items.append(re.sub(r"^\s*[-*]\s+", "", lines[i]))
+                i += 1
+            blocks.append(("itemize", items))
+        elif re.match(r"^\s*\d+\.\s+", line):
+            items = []
+            while i < len(lines):
+                if re.match(r"^\s*\d+\.\s+", lines[i]):
+                    items.append(re.sub(r"^\s*\d+\.\s+", "", lines[i]))
+                    i += 1
+                elif not lines[i].strip():
+                    i += 1
+                elif re.match(r"^\s+\S", lines[i]):
+                    items[-1] += "\n" + lines[i]
+                    i += 1
+                else:
+                    break
+            blocks.append(("enumerate", items))
+        else:
+            para = []
+            while i < len(lines) and lines[i].strip() and not re.match(r"^\s*\|", lines[i]) \
+                    and not re.match(r"^\s*[-*]\s+", lines[i]) and not re.match(r"^\s*\d+\.\s+", lines[i]) \
+                    and not lines[i].lstrip().startswith("```"):
+                para.append(lines[i].strip())
+                i += 1
+            blocks.append(("para", "\n".join(para)))
+    return blocks
+
+
+def md_to_latex(md, images):
+    """Markdown 文本 → LaTeX 源码（段落级）。"""
+    md = re.sub(r"::anti-ai\[[^\]]*\]", "", md)
+    # 删除 :::warning{...} 块标记行与结尾 ::: 行（含其他 ::: 块）
+    md = re.sub(r"^:::[a-z-]*(\{[^}]*\})?\s*$", "", md, flags=re.M)
+    md = re.sub(r"::[a-z-]+(\{[^}]*\})?", "", md)
+    out = []
+    for kind, content in _split_blocks(md):
+        if kind == "para":
+            text = _inline(content, images)
+            out.append(text)
+        elif kind == "itemize":
+            items = "\n".join(r"  \item " + _inline(x, images) for x in content)
+            out.append(r"\begin{itemize}" + "\n" + items + "\n\\end{itemize}")
+        elif kind == "enumerate":
+            items = "\n".join(r"  \item " + _inline(x, images) for x in content)
+            out.append(r"\begin{enumerate}" + "\n" + items + "\n\\end{enumerate}")
+        elif kind == "code":
+            code = _escape_special(content)
+            out.append(r"\begin{verbatim}" + code + r"\end{verbatim}")
+        elif kind == "table":
+            out.append(_table_to_latex(content))
+    return "\n\n".join(out)
+
+
+
+def _table_to_latex(rows):
+    """markdown 表格 → 官方风格表格（tabularray）。
+
+    - 列间竖线（vlines），左右边界无竖线
+    - 顶/底/表头下粗线（hline{1}/{2}/{Z}），行间细线（hlines）
+    - ^ 标记（与上一行同列相同）→ 纵向合并单元格（\SetCell[r=N]）
+    - tabularray 自动跳过合并区域内的线（无 \cline/\multirow 兼容问题）
+    """
+    cells = [re.split(r"(?<!\\)\|", r[1:-1] if r.startswith("|") else r) for r in rows]
+    cells = [[c.strip() for c in row] for row in cells]
+    # 去掉分隔行 |:--:|:--:|
+    cells = [row for row in cells if not all(re.fullmatch(r":?-+:?", c or "-") for c in row)]
+    if not cells:
+        return ""
+    nrows, ncols = len(cells), max(len(r) for r in cells)
+    for row in cells:
+        row += [""] * (ncols - len(row))
+
+    # 1) 展开 ^ 标记（与上方最近非 ^ 值相同）
+    for r in range(1, nrows):
+        for c in range(ncols):
+            if cells[r][c] == "^":
+                for rr in range(r - 1, -1, -1):
+                    if cells[rr][c] != "^":
+                        cells[r][c] = cells[rr][c]
+                        break
+
+    # 2) 每列连续相同值 → 纵向合并（表头行不参与）
+    span = [[1] * ncols for _ in range(nrows)]
+    covered = [[False] * ncols for _ in range(nrows)]
+    for c in range(ncols):
+        r = 1
+        while r < nrows:
+            val = cells[r][c]
+            if not val:
+                r += 1
+                continue
+            end = r
+            while end + 1 < nrows and cells[end + 1][c] == val:
+                end += 1
+            if end > r:
+                span[r][c] = end - r + 1
+                for k in range(r + 1, end + 1):
+                    covered[k][c] = True
+            r = end + 1
+
+    # 3) tabularray 输出：colspec 的 | 只画列间竖线（首尾不加 = 无边界竖线）
+    #    \begin{center}：居中并保留上下间距（超宽表格的特殊处理由使用者自行调整）
+    out = [r"\begin{center}\begin{tblr}{",
+           "  colspec = {" + "c|" * (ncols - 1) + "c},",
+           "  hlines,",
+           "  hline{1} = {2pt},",
+           "  hline{2} = {1.5pt},",
+           "  hline{Z} = {2pt},",
+           "}"]
+    for r in range(nrows):
+        parts = []
+        for c in range(ncols):
+            if covered[r][c]:
+                parts.append("")
+            elif span[r][c] > 1:
+                parts.append(f"\\SetCell[r={span[r][c]}]{{c}}{_inline(cells[r][c], images=None)}")
+            else:
+                parts.append(_inline(cells[r][c], images=None))
+        out.append("  " + " & ".join(parts) + r" \\")
+    out.append(r"\end{tblr}\end{center}")
+    return "\n".join(out)
+
+
+# ---------------- 题面生成 ----------------

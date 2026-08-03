@@ -2,8 +2,9 @@
 
 import pytest
 
-from latex import (md_to_latex, _table_to_latex, _split_hint,
-                   _escape_special, _display_wrap)
+from markdown_latex import (md_to_latex, _table_to_latex,
+                           _escape_special, _display_wrap)
+from latex_doc import _split_hint
 from utils import dashfix, fmt_time_range
 
 

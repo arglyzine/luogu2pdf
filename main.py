@@ -29,8 +29,9 @@ from model import Contest, Problem
 from template import (build_cover_html, build_problem_html,
                       build_problem_section, build_combined_html)
 from utils import safe_filename
-from latex import (build_statement_tex, build_problem_doc,
-                      build_combined_doc, build_build_script, compile_latex)
+from compile import compile_latex
+from latex_doc import (build_statement_tex, build_problem_doc,
+                       build_combined_doc, build_build_script)
 
 DEFAULT_CONFIG = ROOT / "contest.json"
 WORK_DIR = ROOT / ".work"
