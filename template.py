@@ -109,7 +109,8 @@ def _sections_html(problem):
             title = hint_title(content)
         prefix = {"输入格式": "从标准输入中读入数据。",
                   "输出格式": "输出到标准输出中。"}.get(name)
-        body = f'<p>{prefix}</p>' + content if prefix else content
+        # prefix 段需在 .lfe-marked 内（正文缩进选择器）才能首行缩进
+        body = f'<div class="lfe-marked"><p>{prefix}</p></div>' + content if prefix else content
         parts.append({
             "title": title,
             "content": body,
