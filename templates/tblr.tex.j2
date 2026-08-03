@@ -1,3 +1,20 @@
+{#
+题面表格（tabularray）。
+
+- 列间竖线（colspec 的 |），左右边界无线
+- 顶/底/表头下粗线（hline{1}/{2}/{Z}），行间细线（hlines）
+- ^ 标记的纵向合并由 markdown_latex._table_to_latex 处理（\SetCell[r=N]）
+
+【大表格超宽时如何居中】：
+表格列多/内容长导致宽度超过版心时，把外层 center 改为：
+    \begin{center}\makebox[\textwidth][c]{%
+    ...tblr...
+    }\end{center}
+- \begin{center} 保留上下间距
+- \makebox[\textwidth][c] 以页面中心为轴：正常宽度居中于版心，
+  超宽时左右对称溢出边距（不会只向右侧溢出）
+参考 output/<比赛名>/tex/题面/第4题-因果.tex 中的用法。
+#}
 \begin{center}\begin{tblr}{
   colspec = {{ '{' }}{{ colspec }}{{ '}' }},
   hlines,

@@ -101,6 +101,28 @@ cd output/2026-08-03-模拟赛/tex
 脚本会重新编译全部题目并更新输出目录的 PDF——修改一处，单题和
 合集同步生效。`statement.cls` 改全局样式（字体、页眉页脚等）。
 
+## 大表格（超宽）处理
+
+题面表格默认居中于版心内；若某题表格列多导致宽度超过版心
+（如 P17172 因果的数据范围表），编辑 `tex/题面/对应题.tex`，
+把该表格的外层 `\begin{center}\begin{tblr}{` 改为：
+
+```latex
+\begin{center}\makebox[\textwidth][c]{%
+\begin{tblr}{
+  ...
+}
+...
+\end{tblr}}\end{center}
+```
+
+- `\begin{center}` 保留表格上下间距
+- `\makebox[\textwidth][c]` 以页面中心为轴——正常宽度时居中于版心，
+  超宽时左右对称溢出页边距（而不是只向右侧溢出）
+
+修改后运行 `./build.sh` 重新生成全部 PDF。
+（此方法已注释在 `templates/tblr.tex.j2` 模板头部）
+
 ## 其他选项
 
 | 参数 | 作用 |
