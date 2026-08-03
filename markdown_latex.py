@@ -157,26 +157,9 @@ def _split_blocks(md):
                 tbl.append(lines[i].strip())
                 i += 1
             blocks.append(("table", tbl))
-        elif re.match(r"^\s*[-*]\s+", line):
-            items = []
-            while i < len(lines) and re.match(r"^\s*[-*]\s+", lines[i]):
-                items.append(re.sub(r"^\s*[-*]\s+", "", lines[i]))
-                i += 1
-            blocks.append(("itemize", items))
-        elif re.match(r"^\s*\d+\.\s+", line):
-            items = []
-            while i < len(lines):
-                if re.match(r"^\s*\d+\.\s+", lines[i]):
-                    items.append(re.sub(r"^\s*\d+\.\s+", "", lines[i]))
-                    i += 1
-                elif not lines[i].strip():
-                    i += 1
-                elif re.match(r"^\s+\S", lines[i]):
-                    items[-1] += "\n" + lines[i]
-                    i += 1
-                else:
-                    break
-            blocks.append(("enumerate", items))
+        elif re.match(r"^\s*[-*]\s+", line) or re.match(r"^\s*\d+\.\s+", line):
+            block, i = _collect_list(lines, i, len(line) - len(line.lstrip()))
+            blocks.append(block)
         else:
             para = []
             while i < len(lines) and lines[i].strip() and not re.match(r"^\s*\|", lines[i]) \
@@ -188,8 +171,65 @@ def _split_blocks(md):
     return blocks
 
 
+_LIST_RE = re.compile(r"^(\s*)([-*]|\d+\.)\s+(.*)$")
+
+
+def _list_to_tex(kind, items):
+    env = "itemize" if kind == "itemize" else "enumerate"
+    body = "\n".join("  \\item " + it for it in items)
+    return f"\\begin{{{env}}}\n{body}\n\\end{{{env}}}"
+
+
+def _collect_list(lines, i, base_indent):
+    """收集缩进层级 >= base_indent 的列表（支持嵌套子列表与缩进续行）。
+
+    返回 (("itemize"|"enumerate", [项文本...]), 下一行索引)；
+    嵌套子列表以 LaTeX 片段形式附加到所属项文本中。
+    """
+    items = []
+    kind = None
+    while i < len(lines):
+        m = _LIST_RE.match(lines[i])
+        if not m or len(m.group(1)) < base_indent:
+            break
+        indent = len(m.group(1))
+        cur_kind = "enumerate" if m.group(2)[0].isdigit() else "itemize"
+        if kind is None:
+            kind = cur_kind
+        if cur_kind != kind:
+            break
+        text = m.group(3)
+        i += 1
+        # 收集项内内容：空行跳过、更深缩进的列表嵌套、缩进非列表行续行
+        nested = []
+        while i < len(lines):
+            line = lines[i]
+            m2 = _LIST_RE.match(line)
+            if m2 and len(m2.group(1)) > indent:
+                sub, i = _collect_list(lines, i, len(m2.group(1)))
+                _NESTED_TOKENS.append(sub)
+                text += "\n" + f"\x00NL{len(_NESTED_TOKENS) - 1}\x00"
+            elif m2:
+                break
+            elif not line.strip():
+                i += 1
+            elif len(line) - len(line.lstrip()) > indent:
+                text += "\n" + line
+                i += 1
+            else:
+                break
+        if nested:
+            text += "\n" + "\n".join(nested)
+        items.append(text)
+    return (kind, items), i
+
+
+_NESTED_TOKENS = []
+
+
 def md_to_latex(md, images):
     """Markdown 文本 → LaTeX 源码（段落级）。"""
+    _NESTED_TOKENS.clear()
     md = re.sub(r"::anti-ai\[[^\]]*\]", "", md)
     # 删除 :::warning{...} 块标记行与结尾 ::: 行（含其他 ::: 块）
     md = re.sub(r"^:::[a-z-]*(\{[^}]*\})?\s*$", "", md, flags=re.M)
@@ -199,12 +239,14 @@ def md_to_latex(md, images):
         if kind == "para":
             text = _inline(content, images)
             out.append(text)
-        elif kind == "itemize":
-            items = "\n".join(r"  \item " + _inline(x, images) for x in content)
-            out.append(r"\begin{itemize}" + "\n" + items + "\n\\end{itemize}")
-        elif kind == "enumerate":
-            items = "\n".join(r"  \item " + _inline(x, images) for x in content)
-            out.append(r"\begin{enumerate}" + "\n" + items + "\n\\end{enumerate}")
+        elif kind in ("itemize", "enumerate"):
+            def restore(m):
+                sub_kind, sub_items = _NESTED_TOKENS[int(m.group(1))]
+                rendered = [_inline(x, images) for x in sub_items]
+                return _list_to_tex(sub_kind, rendered)
+            items = [_inline(x, images) for x in content]
+            items = [re.sub(r"\x00NL(\d+)\x00", restore, x) for x in items]
+            out.append(_list_to_tex(kind, items))
         elif kind == "code":
             code = _escape_special(content)
             out.append(r"\begin{verbatim}" + code + r"\end{verbatim}")
