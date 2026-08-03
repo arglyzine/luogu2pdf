@@ -1,0 +1,9 @@
+{% if en %}\section{ {{ name }}（\englishname{ {{ en }} }）}{% else %}\section{ {{ name }} }{% endif %}
+{% for s in sections %}
+\subsection[ {{ s.title }} ]{【 {{ s.title }} 】}
+{% if s.sample %}
+{{ s.sample }}
+{% else %}
+{{ s.body }}
+{% endif %}
+{% endfor %}

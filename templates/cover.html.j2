@@ -1,7 +1,19 @@
-<div class="cover-title">{{ contest_name }}</div>
+<div class="cover-title">{{ contest_name|e }}</div>
 {{ time_line }}
-{{ table }}
+<table class="cover">
+{% for label, cells in info_rows %}
+<tr><th>{{ label|e }}</th>{% for c in cells %}<td>{{ c|e }}</td>{% endfor %}</tr>
+{% endfor %}
+</table>
+<div class="cover-section">提交源程序文件名</div>
+<table class="cover">
+<tr><th>对于 C++ 语言</th>{% for f in src_files %}<td><code>{{ f|e }}</code></td>{% endfor %}</tr>
+</table>
+<div class="cover-section">编译选项</div>
+<table class="cover">
+<tr><th>对于 C++ 语言</th><td colspan="{{ n }}"><code>{{ compile_opts|e }}</code></td></tr>
+</table>
 <div class="cover-section">注意事项（请仔细阅读）</div>
 <ol class="cover-notes">
-{{ notes_html }}
+{% for note in notes %}<li>{{ note|e }}</li>{% endfor %}
 </ol>

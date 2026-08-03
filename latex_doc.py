@@ -31,15 +31,15 @@ def _split_hint(hint):
 
 
 def build_statement_tex(problem, contest, index, total, images):
-    """生成单个题目的 .tex 文件内容（\section 形式，合集或单题共用）。"""
-    sections = []
+    """生成单个题目的 .tex 内容（\section 形式，合集或单题共用；模板循环渲染）。"""
+    parts = []
     content = problem.content
     name = content.get("name", problem.pid)
     samples = problem.md_samples
 
-    def sec(title, body, force=True):
+    def sec(title, body):
         if body and body.strip():
-            sections.append(f"\\subsection[{title}]{{【{title}】}}\n\n{body}\n")
+            parts.append({"title": title, "body": body})
 
     if content.get("background"):
         sec("题目背景", md_to_latex(content["background"], images))
@@ -50,15 +50,12 @@ def build_statement_tex(problem, contest, index, total, images):
     if content.get("formatO"):
         sec("输出格式", "输出到标准输出中。\n\n" + md_to_latex(content["formatO"], images))
 
-    samples = problem.md_samples
     if samples:
         for n, pair in enumerate(samples, 1):
             inp, outp = pair[0], pair[1] if len(pair) > 1 else ""
-            sections.append(f"\\subsection[样例 {n} 输入]{{【样例 {n} 输入】}}\n"
-                            + _sample_block(inp))
+            parts.append({"title": f"样例 {n} 输入", "sample": _sample_block(inp)})
             if outp:
-                sections.append(f"\\subsection[样例 {n} 输出]{{【样例 {n} 输出】}}\n"
-                                + _sample_block(outp))
+                parts.append({"title": f"样例 {n} 输出", "sample": _sample_block(outp)})
 
     if content.get("hint"):
         for htitle, hbody in _split_hint(content["hint"]):
@@ -67,17 +64,18 @@ def build_statement_tex(problem, contest, index, total, images):
             m = re.search(r"样例\s*(\d+)\s*解释", htitle)
             if "解释" in htitle and "样例" in htitle:
                 n = m.group(1) if m else (1 if samples else 1)
-                sections.append(f"\\subsection[样例 {n} 解释]{{【样例 {n} 解释】}}\n\n"
-                                + md_to_latex(hbody, images) + "\n")
+                parts.append({"title": f"样例 {n} 解释",
+                              "body": md_to_latex(hbody, images) + "\n"})
             else:
                 title = htitle or ("数据范围" if re.search(
                     r"数据范围|测试点|对于\s*100\s*%", hbody) else "提示")
                 sec(title, md_to_latex(hbody, images))
 
-    en = problem.english_name
-    head = (f"\\section{{{name}（\\englishname{{{en}}}）}}\n" if en
-            else f"\\section{{{name}}}\n")
-    return head + "\n".join(sections)
+    return _env.get_template("statement.tex.j2").render(
+        name=name,
+        en=problem.english_name,
+        sections=parts,
+    )
 
 
 def _sample_block(text):
@@ -141,7 +139,7 @@ def build_cover_tex(contest, problems, images):
         m = re.match(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})", str(contest.date))
         date = (f"{m.group(1)} 年 {int(m.group(2))} 月 {int(m.group(3))} 日") if m else contest.date
         # 官方时间格式：08:30 ∼ 13:00（补零 + 波浪线）
-        t = fmt_time_range(contest.time).replace("～", "$\\sim$")
+        t = fmt_time_range(contest.time)
         duration = contest.duration
         time_line = f"\\fontsize{{15}}{{22}}\\selectfont \\rmfamily 时间：{date} {t}（{duration}）\n\\vskip 0.5em"
 
@@ -172,7 +170,6 @@ def build_problem_doc(contest, index, total, body_rel):
         title=dashfix(contest.name),
         body=f"\\input{{{body_rel}}}",
     )
-
 
 def build_combined_doc(contest, problems, images, body_rels):
     """合集完整文档：封面 + \input 各题面 body（修改题面后合集同步更新）。"""

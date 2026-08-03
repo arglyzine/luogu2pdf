@@ -14,7 +14,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from utils import fmt_date, fmt_time_range, fmt_time_limit, fmt_memory
+from utils import fmt_date, fmt_time_range, fmt_time_limit, fmt_memory, dashfix
 
 ROOT = Path(__file__).resolve().parent
 KATEX_CSS = ROOT / "assets" / "katex" / "katex.min.css"
@@ -97,8 +97,8 @@ def _split_hint_html(hint_html):
 
 
 def _sections_html(problem):
-    """题目各节 HTML：节标题【】格式 + 内容原样保留。"""
-    html = []
+    """题目各节 HTML：节标题【】格式 + 内容原样保留（模板循环渲染）。"""
+    parts = []
     sections = problem.sections
     samples = problem.samples
 
@@ -109,13 +109,14 @@ def _sections_html(problem):
             continue
         if title is None:
             title = hint_title(content)
-        html.append(f'<h2 class="sec">【{escape(title)}】</h2>')
         prefix = {"输入格式": "从标准输入中读入数据。",
                   "输出格式": "输出到标准输出中。"}.get(name)
-        if prefix:
-            html.append(f'<div class="marked"><p>{prefix}</p></div>')
-        cls = "marked datarange" if title == "数据范围" else "marked"
-        html.append(f'<div class="{cls}">{content}</div>')
+        body = f'<p>{prefix}</p>' + content if prefix else content
+        parts.append({
+            "title": title,
+            "content": body,
+            "cls": "marked datarange" if title == "数据范围" else "marked",
+        })
 
     # 样例输入/输出
     if samples:
@@ -125,11 +126,9 @@ def _sections_html(problem):
         for n in sorted(groups):
             g = groups[n]
             if "输入" in g:
-                html.append(f'<h2 class="sec">【样例 {n} 输入】</h2>')
-                html.append(_numbered_sample(g["输入"]))
+                parts.append({"title": f"样例 {n} 输入", "sample": _numbered_sample(g["输入"])})
             if "输出" in g:
-                html.append(f'<h2 class="sec">【样例 {n} 输出】</h2>')
-                html.append(_numbered_sample(g["输出"]))
+                parts.append({"title": f"样例 {n} 输出", "sample": _numbered_sample(g["输出"])})
 
     # 说明/提示：按 ### 小标题拆分（样例解释在样例之后独立成节）
     hint_html = sections.get("说明/提示")
@@ -140,15 +139,16 @@ def _sections_html(problem):
             m = re.search(r"样例\s*(\d+)\s*解释", htitle)
             if "解释" in htitle and "样例" in htitle:
                 n = m.group(1) if m else (1 if samples else 1)
-                html.append(f'<h2 class="sec">【样例 {n} 解释】</h2>')
-                html.append(f'<div class="marked">{hbody}</div>')
+                parts.append({"title": f"样例 {n} 解释", "content": hbody, "cls": "marked"})
             else:
                 t = htitle or hint_title(hbody)
-                cls = "marked datarange" if t == "数据范围" else "marked"
-                html.append(f'<h2 class="sec">【{escape(t)}】</h2>')
-                html.append(f'<div class="{cls}">{hbody}</div>')
+                parts.append({
+                    "title": t,
+                    "content": hbody,
+                    "cls": "marked datarange" if t == "数据范围" else "marked",
+                })
 
-    return "\n".join(html)
+    return _env.get_template("sections.html.j2").render(sections=parts)
 
 
 # ---------------- 页面组装 ----------------
@@ -185,7 +185,7 @@ def build_problem_section(problem, contest):
     title_html = f"{escape(title)}（{escape(en)}）" if en else escape(title)
     head = f"""
 <div style="page-break-before: always;"></div>
-{_header_html(problem, contest.name, flow=True)}
+{_header_html(problem, dashfix(contest.name), flow=True)}
 <h1 class="title">{title_html}</h1>
 """
     return head + _sections_html(problem)
@@ -193,30 +193,28 @@ def build_problem_section(problem, contest):
 
 
 def build_cover_html(contest, problems):
-    """封面 HTML：比赛信息表格 + 注意事项。"""
-    names = [escape(p.title) for p in problems]
-    enames = [p.exec_name for p in problems]
-    types = [escape(p.type) for p in problems]
-    limits = [f"{fmt_time_limit(p.time_limit)}" for p in problems]
-    mems = [f"{fmt_memory(p.memory_limit)}" for p in problems]
-    ios = ["标准输入" for _ in problems]
-    oos = ["标准输出" for _ in problems]
+    """封面 HTML：比赛信息表格 + 提交文件名/编译选项 + 注意事项（对齐 LaTeX 版）。
 
-    def row(label, cells):
-        tds = "".join(f"<td>{c}</td>" for c in cells)
-        return f"<tr><th>{label}</th>{tds}</tr>"
-
-    table = (
-        "<table class=\"cover\">"
-        + row("题目名称", names)
-        + row("题目类型", types)
-        + row("可执行文件名", enames)
-        + row("输入文件名", ios)
-        + row("输出文件名", oos)
-        + row("每个测试点时限", limits)
-        + row("内存限制", mems)
-        + "</table>"
-    )
+    数据准备与模板分离：模板用 Jinja2 循环渲染表格，Python 只组装数据。
+    """
+    n = len(problems)
+    # 时限取各测试点最大值（与 LaTeX 封面一致）
+    limits = []
+    for p in problems:
+        t = p.limits.get("time", [0])
+        limits.append(f"{max(t) / 1000:.1f} 秒" if t else "")
+    info_rows = [
+        ("题目名称", [p.title for p in problems]),
+        ("题目类型", [p.type for p in problems]),
+        ("目录", [p.exec_name for p in problems]),
+        ("可执行文件名", [p.exec_name for p in problems]),
+        ("输入文件名", ["标准输入"] * n),
+        ("输出文件名", ["标准输出"] * n),
+        ("每个测试点时限", limits),
+        ("内存限制", [fmt_memory(p.memory_limit) for p in problems]),
+        ("测试点数目", [str(len(p.limits.get("time", []))) for p in problems]),
+    ]
+    src_files = [f"{p.exec_name}.cpp" for p in problems]
 
     time_line = ""
     if contest.date or contest.time:
@@ -236,13 +234,15 @@ def build_cover_html(contest, problems):
         "选手提交的程序源文件必须不大于 100KB。",
         "程序可使用的栈空间内存限制与题目的内存限制一致。",
     ]
-    notes_html = "".join(f"<li>{escape(n)}</li>" for n in notes)
 
     return _env.get_template("cover.html.j2").render(
-        contest_name=escape(contest.name),
+        contest_name=dashfix(contest.name),
         time_line=time_line,
-        table=table,
-        notes_html=notes_html,
+        info_rows=info_rows,
+        src_files=src_files,
+        compile_opts="-O2 -std=c++14 -static",
+        notes=notes,
+        n=n,
     )
 
 

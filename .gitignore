@@ -1,6 +1,7 @@
 .venv/
 .work/
 output/
+output-html/
 __pycache__/
 *.pyc
 *.log

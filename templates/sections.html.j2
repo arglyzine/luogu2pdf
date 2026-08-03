@@ -1,0 +1,8 @@
+{% for s in sections %}
+<h2 class="sec">【{{ s.title|e }}】</h2>
+{% if s.sample %}
+{{ s.sample }}
+{% else %}
+<div class="{{ s.cls }}">{{ s.content }}</div>
+{% endif %}
+{% endfor %}
