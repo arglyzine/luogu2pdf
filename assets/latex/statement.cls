@@ -31,6 +31,8 @@
 \RequirePackage{enumitem}
 \setenumerate[1]{itemsep=0pt,partopsep=0pt,parsep=\parskip,topsep=5pt}
 \setitemize[1]{itemsep=0pt,partopsep=0pt,parsep=\parskip,topsep=5pt}
+% 嵌套列表标签：第二层用白色空心圆点（◦），第三层延续默认
+\renewcommand{\labelitemii}{$\circ$}
 
 
 \RequirePackage{fancyhdr}
