@@ -37,10 +37,8 @@ def _katex_css():
     return css.replace("url(fonts/", f"url({fonts_uri}/")
 
 
-def _base_style(with_header):
+def _base_style(with_header=True):
     css = BASE_CSS.render(serif_font=SERIF_FONT.resolve().as_uri())
-    if not with_header:
-        css += "\n.page-header { display: none; }\n"
     return "<style>" + css + _katex_css() + "</style>"
 
 
@@ -153,16 +151,6 @@ def _sections_html(problem):
 
 # ---------------- 页面组装 ----------------
 
-def _header_html(problem, contest_name, flow):
-    title = problem.title
-    en = problem.english_name
-    right = f"{escape(title)}（{escape(en)}）" if en else escape(title)
-    name = contest_name
-    if flow:
-        return f'<div class="flow-header"><span>{escape(name)}</span><span class="right">{right}</span></div>'
-    return f'<div class="page-header"><span>{escape(name)}</span><span class="right">{right}</span></div>'
-
-
 def build_problem_html(problem, contest, index, total):
     """单题完整 HTML（页眉 fixed，每页重复）。"""
     title = problem.title
@@ -183,12 +171,8 @@ def build_problem_section(problem, contest):
     title = problem.title
     en = problem.english_name
     title_html = f"{escape(title)}（{escape(en)}）" if en else escape(title)
-    head = f"""
-<div style="page-break-before: always;"></div>
-{_header_html(problem, dashfix(contest.name), flow=True)}
-<h1 class="title">{title_html}</h1>
-"""
-    return head + _sections_html(problem)
+    return ('<div style="page-break-before: always;"></div>\n'
+            f'<h1 class="title">{title_html}</h1>\n') + _sections_html(problem)
 # (build_problem_section 保留 Python 拼接：页眉/标题组合，模板化收益低)
 
 

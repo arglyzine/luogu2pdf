@@ -29,7 +29,7 @@ from luogu import fetch_problem
 from model import Contest, Problem
 from template import (build_cover_html, build_problem_html,
                       build_problem_section, build_combined_html)
-from utils import safe_filename
+from utils import safe_filename, dashfix
 from compile import compile_latex
 from latex_doc import (build_statement_tex, build_problem_doc,
                        build_combined_doc, build_build_script)
@@ -142,8 +142,17 @@ def pdf_name(data, out_dir):
     return out_dir / f"第{data.index}题-{title}.pdf"
 
 
+def header_html(left, right):
+    """Chromium headerTemplate：渲染在页边距区域，每页重复且不与正文重叠。"""
+    return f"""<div style="width:100%; font-size:10px; font-family:'Noto Serif CJK SC',serif;
+                color:#000; display:flex; justify-content:space-between;
+                border-bottom:1px solid #000; padding-bottom:2mm;">
+  <span>{left}</span><span style="font-weight:bold;">{right}</span>
+</div>"""
+
+
 async def run_html(browser, datas, contest, out_dir, args):
-    """HTML 后端：Chromium 打印 PDF。"""
+    """HTML 后端：Chromium 打印 PDF（页眉用 headerTemplate，每页重复）。"""
     pdf_paths = []
     ctx = await browser.new_context(locale="zh-CN")
     try:
@@ -161,12 +170,14 @@ async def run_html(browser, datas, contest, out_dir, args):
                 await page.goto(html_path.as_uri(), wait_until="networkidle", timeout=60000)
                 await page.evaluate("document.fonts.ready.then(() => true)")
                 pdf_path = pdf_name(data, out_dir)
+                en = data.english_name
+                right = f"{data.title}（{en}）" if en else data.title
                 await page.pdf(
                     path=str(pdf_path), format="A4", print_background=True,
                     margin={"top": "25mm", "bottom": "20mm",
                             "left": "27mm", "right": "27mm"},
                     footer_template=FOOTER_HTML,
-                    header_template=EMPTY_HEADER_HTML,
+                    header_template=header_html(dashfix(contest.name), right),
                     display_header_footer=True,
                 )
                 pdf_paths.append(pdf_path)
@@ -194,7 +205,7 @@ async def run_html(browser, datas, contest, out_dir, args):
                         margin={"top": "25mm", "bottom": "20mm",
                                 "left": "27mm", "right": "27mm"},
                         footer_template=FOOTER_HTML,
-                        header_template=EMPTY_HEADER_HTML,
+                        header_template=header_html(dashfix(contest.name), ""),
                         display_header_footer=True,
                     )
                     log.info("  完成: %s", merge_path.name)

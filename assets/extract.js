@@ -46,7 +46,7 @@
   }
 
   // 数据范围表格：仅 ^ 标记处合并（^ 表示与上一行同列相同，纵向 rowspan）
-  for (const table of document.querySelectorAll('.lfe-marked table')) {
+  for (const table of document.querySelectorAll('.lfe-marked table, .cute-table table')) {
     const trs = [...table.querySelectorAll('tr')];
     const data = trs.map(tr => [...tr.querySelectorAll('td, th')].map(c => c.innerHTML));
     const ncols = Math.max(0, ...data.map(r => r.length));
