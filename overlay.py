@@ -19,8 +19,9 @@ from utils import dashfix
 PAGE_W = 595.28  # A4 宽 (pt)
 PAGE_H = 841.89  # A4 高 (pt)
 MARGIN = 27 * 72 / 25.4  # 27mm ≈ 76.5pt
-HEADER_Y = PAGE_H - 25 * 72 / 25.4  # 顶部 25mm 处
-FOOTER_Y = 20 * 72 / 25.4 - 12  # 底部 20mm 区域内
+# 页眉放在顶部 25mm 边距区域内（正文从 25mm 处开始，避免重叠）
+HEADER_Y = PAGE_H - 25 * 72 / 25.4 + 30  # 基线：距页面顶部约 15mm
+FOOTER_Y = 20 * 72 / 25.4 - 14  # 页脚基线：距页面底部约 14mm
 
 
 def _font():
@@ -68,10 +69,14 @@ def _header_packet(contest_name, title, page_w, page_h):
 
 
 def _page_number_packet(page_no, total, page_w, page_h):
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    text = f"第 {page_no} 页　共 {total} 页"
+    width = sum(stringWidth(seg, "Helvetica" if seg.isascii() else _font(), 9)
+                for seg in re.findall(r"[\x00-\x7f]+|[^\x00-\x7f]+", text))
     packet = BytesIO()
     c = canvas.Canvas(packet, pagesize=(page_w, page_h))
     c.setFillColorRGB(0, 0, 0)
-    _draw_mixed(c, page_w / 2, FOOTER_Y, f"第 {page_no} 页　共 {total} 页", 9)
+    _draw_mixed(c, page_w / 2 - width / 2, FOOTER_Y, text, 9)
     c.save()
     return BytesIO(packet.getvalue())
 
