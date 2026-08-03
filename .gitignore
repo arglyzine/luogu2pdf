@@ -1,0 +1,11 @@
+.venv/
+.work/
+output/
+__pycache__/
+*.pyc
+*.log
+*.aux
+*.out
+assets/fonts/
+assets/katex/
+reference/
