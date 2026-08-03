@@ -73,6 +73,12 @@ def test_table_basic_three_line():
     assert "tblr" in out
 
 
+def test_table_column_count():
+    rows = ["| a | b | c |", "| 1 | 2 | 3 |", "| 4 | 5 | 6 |"]
+    out = _table_to_latex(rows)
+    assert "colspec = {c|c|c}" in out
+
+
 def test_table_caret_merge():
     rows = [
         "| 子任务 | N | 性质 |",
@@ -86,13 +92,34 @@ def test_table_caret_merge():
     assert "^" not in out.replace("textasciicircum", "")
 
 
-def test_table_column_count():
-    rows = ["| a | b | c |", "| 1 | 2 | 3 |", "| 4 | 5 | 6 |"]
+def test_table_same_value_without_caret_not_merged():
+    # 性质列两行都是「无」但没有 ^ 标记 → 不合并；N 列 ^ 仍合并
+    rows = [
+        "| 子任务 | N | 性质 |",
+        "| 1 | $\\le 9$ | 无 |",
+        "| 2 | ^ | 无 |",
+    ]
     out = _table_to_latex(rows)
-    assert "colspec = {c|c|c}" in out
+    # 只有 1 处 SetCell（N 列的 ^ 合并）
+    assert out.count("SetCell") == 1
+    # 性质列两行都保留值
+    assert out.count("无") == 2
+
+
+def test_table_caret_chain_merge():
+    # 连续多个 ^ 与来源行合并为 r=3
+    rows = [
+        "| a | b |",
+        "| x | y |",
+        "| ^ | y |",
+        "| ^ | z |",
+    ]
+    out = _table_to_latex(rows)
+    assert "SetCell[r=3]" in out
 
 
 def test_table_merge_skip_covered():
+    # 无 ^ 的连续相同值不合并
     rows = [
         "| a | b |",
         "| x | y |",
@@ -100,7 +127,7 @@ def test_table_merge_skip_covered():
         "| w | z |",
     ]
     out = _table_to_latex(rows)
-    assert "SetCell[r=2]" in out
+    assert "SetCell" not in out
 
 
 # ---------------- hint 拆分 ----------------

@@ -219,7 +219,8 @@ def _table_to_latex(rows):
 
     - 列间竖线（vlines），左右边界无竖线
     - 顶/底/表头下粗线（hline{1}/{2}/{Z}），行间细线（hlines）
-    - ^ 标记（与上一行同列相同）→ 纵向合并单元格（\SetCell[r=N]）
+    - 仅 ^ 标记处合并：^ 表示「与上一行同列相同」，其所在行与来源行
+      纵向合并（\SetCell[r=N]）；普通相同值不合并
     - tabularray 自动跳过合并区域内的线（无 \cline/\multirow 兼容问题）
     """
     cells = [re.split(r"(?<!\\)\|", r[1:-1] if r.startswith("|") else r) for r in rows]
@@ -232,7 +233,8 @@ def _table_to_latex(rows):
     for row in cells:
         row += [""] * (ncols - len(row))
 
-    # 1) 展开 ^ 标记（与上方最近非 ^ 值相同）
+    # 1) 记录 ^ 位置，再展开（与上方最近非 ^ 值相同）
+    caret = [[cells[r][c] == "^" for c in range(ncols)] for r in range(nrows)]
     for r in range(1, nrows):
         for c in range(ncols):
             if cells[r][c] == "^":
@@ -241,24 +243,22 @@ def _table_to_latex(rows):
                         cells[r][c] = cells[rr][c]
                         break
 
-    # 2) 每列连续相同值 → 纵向合并（表头行不参与）
+    # 2) 仅对 ^ 所在列合并：^ 连续段与其来源行合并（表头行不参与）
     span = [[1] * ncols for _ in range(nrows)]
     covered = [[False] * ncols for _ in range(nrows)]
     for c in range(ncols):
         r = 1
         while r < nrows:
-            val = cells[r][c]
-            if not val:
-                r += 1
-                continue
-            end = r
-            while end + 1 < nrows and cells[end + 1][c] == val:
-                end += 1
-            if end > r:
-                span[r][c] = end - r + 1
-                for k in range(r + 1, end + 1):
+            if caret[r][c]:
+                end = r
+                while end + 1 < nrows and caret[end + 1][c]:
+                    end += 1
+                span[r - 1][c] = end - (r - 1) + 1
+                for k in range(r, end + 1):
                     covered[k][c] = True
-            r = end + 1
+                r = end + 1
+            else:
+                r += 1
 
     # 3) tabularray 输出：colspec 的 | 只画列间竖线（首尾不加 = 无边界竖线）
     #    \begin{center}：居中并保留上下间距（超宽表格的特殊处理由使用者自行调整）

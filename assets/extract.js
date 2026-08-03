@@ -45,36 +45,37 @@
     det.replaceWith(div);
   }
 
-  // 数据范围表格：^ 标记（与上一行同列相同）→ 纵向合并单元格（rowspan）
+  // 数据范围表格：仅 ^ 标记处合并（^ 表示与上一行同列相同，纵向 rowspan）
   for (const table of document.querySelectorAll('.lfe-marked table')) {
     const trs = [...table.querySelectorAll('tr')];
     const data = trs.map(tr => [...tr.querySelectorAll('td, th')].map(c => c.innerHTML));
-    // 展开 ^
+    const ncols = Math.max(0, ...data.map(r => r.length));
+    // 记录 ^ 位置，再展开（继承上方最近非 ^ 值）
+    const caret = data.map(row => row.map(cell => (cell || '').trim() === '^'));
     for (let r = 1; r < data.length; r++) {
       for (let c = 0; c < data[r].length; c++) {
-        if (data[r][c].trim() === '^') {
+        if (caret[r][c]) {
           for (let rr = r - 1; rr >= 0; rr--) {
-            if (data[rr][c] && data[rr][c].trim() !== '^') { data[r][c] = data[rr][c]; break; }
+            if (!caret[rr][c]) { data[r][c] = data[rr][c]; break; }
           }
         }
       }
     }
-    // 每列连续相同值 → rowspan（表头行不参与）
-    const ncols = Math.max(0, ...data.map(r => r.length));
+    // 仅 ^ 连续段与其来源行合并（表头行不参与）
     const spans = data.map(r => r.map(() => 1));
     const covered = data.map(r => r.map(() => false));
     for (let c = 0; c < ncols; c++) {
       let r = 1;
       while (r < data.length) {
-        const val = (data[r][c] || '').trim();
-        if (!val) { r++; continue; }
-        let end = r;
-        while (end + 1 < data.length && (data[end + 1][c] || '').trim() === val) end++;
-        if (end > r) {
-          spans[r][c] = end - r + 1;
-          for (let k = r + 1; k <= end; k++) covered[k][c] = true;
+        if (caret[r][c]) {
+          let end = r;
+          while (end + 1 < data.length && caret[end + 1][c]) end++;
+          spans[r - 1][c] = end - (r - 1) + 1;
+          for (let k = r; k <= end; k++) covered[k][c] = true;
+          r = end + 1;
+        } else {
+          r++;
         }
-        r = end + 1;
       }
     }
     for (let r = 0; r < trs.length; r++) {
