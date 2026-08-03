@@ -13,6 +13,8 @@ import string
 from html import escape
 from pathlib import Path
 
+from utils import fmt_date, fmt_time_range, fmt_time_limit, fmt_memory
+
 ROOT = Path(__file__).resolve().parent
 KATEX_CSS = ROOT / "assets" / "katex" / "katex.min.css"
 KATEX_FONTS = ROOT / "assets" / "katex" / "fonts"
@@ -127,59 +129,6 @@ def _base_style(with_header):
     return "<style>" + css + _katex_css() + "</style>"
 
 
-# ---------------- 格式化辅助 ----------------
-
-def fmt_date(date_str):
-    m = re.match(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})", str(date_str))
-    if m:
-        return f"{m.group(1)} 年 {int(m.group(2))} 月 {int(m.group(3))} 日"
-    return str(date_str)
-
-
-def fmt_time_range(raw):
-    """'9:00-13:00' -> '09:00 ～ 13:00'；'8:30~12:00' 同样处理。"""
-    s = str(raw).strip().replace("~", "-").replace("～", "-")
-    parts = re.split(r"\s*-\s*", s)
-    if len(parts) == 2:
-        def f(t):
-            m = re.match(r"(\d{1,2}):(\d{2})", t.strip())
-            return f"{int(m.group(1)):02d}:{m.group(2)}" if m else t.strip()
-        return f"{f(parts[0])} ～ {f(parts[1])}"
-    return s
-
-
-def fmt_time_limit(raw):
-    """'500ms'->'0.5 秒'；'1.00s'->'1.0 秒'；'1.00s ~ 1.20s'->'1.0 秒 ～ 1.2 秒'。"""
-    s = raw.strip().lower()
-    def one(x):
-        m = re.match(r"([\d.]+)\s*ms$", x)
-        if m:
-            return f"{float(m.group(1))/1000:.1f} 秒"
-        m = re.match(r"([\d.]+)\s*s$", x)
-        if m:
-            return f"{float(m.group(1)):.1f} 秒"
-        return x
-    if "~" in s or "～" in s:
-        a, b = re.split(r"\s*[~～]\s*", s)
-        return f"{one(a)} ～ {one(b)}"
-    return one(s)
-
-
-def fmt_memory(raw):
-    """'16.00MB'->'16 MiB'；'512.00MB'->'512 MiB'；'1GB'->'1024 MiB'。"""
-    s = raw.strip().upper()
-    m = re.match(r"([\d.]+)\s*(KB|MB|GB)$", s)
-    if m:
-        v, u = float(m.group(1)), m.group(2)
-        v = v * 1024 if u == "GB" else v / 1024 if u == "KB" else v
-        return f"{v:g} MiB"
-    return s
-
-
-def safe_filename(name, fallback="题目"):
-    return re.sub(r'[\\/:*?"<>|\s]+', "-", name).strip("-") or fallback
-
-
 # ---------------- 内容组装 ----------------
 
 def _numbered_sample(text):
@@ -235,8 +184,8 @@ def _split_hint_html(hint_html):
 def _sections_html(problem):
     """题目各节 HTML：节标题【】格式 + 内容原样保留。"""
     html = []
-    sections = problem.get("sections", {})
-    samples = problem.get("samples", [])
+    sections = problem.sections
+    samples = problem.samples
 
     # 主体节：背景/描述/输入/输出
     for name, title in SECTION_MAP:
@@ -289,21 +238,11 @@ def _sections_html(problem):
 
 # ---------------- 页面组装 ----------------
 
-def _english_name(problem):
-    """模拟赛显示名：english 或空（不暴露洛谷题号）。"""
-    return (problem.get("english") or "").strip()
-
-
-def _exec_name(problem, index):
-    """可执行文件名：english 或 t{编号}。"""
-    return _english_name(problem) or f"t{index}"
-
-
-def _header_html(problem, flow):
-    name = problem["contest_name"]
-    title = problem.get("title", "")
-    en = _english_name(problem)
+def _header_html(problem, contest_name, flow):
+    title = problem.title
+    en = problem.english_name
     right = f"{escape(title)}（{escape(en)}）" if en else escape(title)
+    name = contest_name
     if flow:
         return f'<div class="flow-header"><span>{escape(name)}</span><span class="right">{right}</span></div>'
     return f'<div class="page-header"><span>{escape(name)}</span><span class="right">{right}</span></div>'
@@ -311,13 +250,11 @@ def _header_html(problem, flow):
 
 def build_problem_html(problem, contest, index, total):
     """单题完整 HTML（页眉 fixed，每页重复）。"""
-    problem = dict(problem)
-    problem["contest_name"] = contest["name"]
-    title = problem.get("title", "")
-    en = _english_name(problem)
+    title = problem.title
+    en = problem.english_name
     title_html = f"{escape(title)}（{escape(en)}）" if en else escape(title)
     head = f"""
-<div class="page-header"><span>{escape(contest['name'])}</span><span class="right">{title_html}</span></div>
+<div class="page-header"><span>{escape(contest.name)}</span><span class="right">{title_html}</span></div>
 <h1 class="title">{title_html}</h1>
 """
     body = _sections_html(problem)
@@ -338,14 +275,12 @@ def build_problem_html(problem, contest, index, total):
 
 def build_problem_section(problem, contest):
     """合集中的题面片段（流式页眉，仅本题首页显示）。"""
-    problem = dict(problem)
-    problem["contest_name"] = contest["name"]
-    title = problem.get("title", "")
-    en = _english_name(problem)
+    title = problem.title
+    en = problem.english_name
     title_html = f"{escape(title)}（{escape(en)}）" if en else escape(title)
     head = f"""
 <div style="page-break-before: always;"></div>
-{_header_html(problem, flow=True)}
+{_header_html(problem, contest.name, flow=True)}
 <h1 class="title">{title_html}</h1>
 """
     return head + _sections_html(problem)
@@ -353,12 +288,11 @@ def build_problem_section(problem, contest):
 
 def build_cover_html(contest, problems):
     """封面 HTML：比赛信息表格 + 注意事项。"""
-    rows = []
-    names = [escape(p.get("title", p.get("pid", ""))) for p in problems]
-    enames = [_exec_name(p, i) for i, p in enumerate(problems, 1)]
-    types = [escape(p.get("type", "传统型")) for p in problems]
-    limits = [f"{fmt_time_limit(p.get('timeLimit', ''))}" for p in problems]
-    mems = [f"{fmt_memory(p.get('memoryLimit', ''))}" for p in problems]
+    names = [escape(p.title) for p in problems]
+    enames = [p.exec_name for p in problems]
+    types = [escape(p.type) for p in problems]
+    limits = [f"{fmt_time_limit(p.time_limit)}" for p in problems]
+    mems = [f"{fmt_memory(p.memory_limit)}" for p in problems]
     ios = ["标准输入" for _ in problems]
     oos = ["标准输出" for _ in problems]
 
@@ -379,15 +313,15 @@ def build_cover_html(contest, problems):
     )
 
     time_line = ""
-    if contest.get("date") or contest.get("time"):
+    if contest.date or contest.time:
         parts = []
-        if contest.get("date"):
-            parts.append(fmt_date(contest["date"]))
-        if contest.get("time"):
-            parts.append(f"{fmt_time_range(contest['time'])}（{contest.get('duration', '')}）")
+        if contest.date:
+            parts.append(fmt_date(contest.date))
+        if contest.time:
+            parts.append(f"{fmt_time_range(contest.time)}（{contest.duration}）")
         time_line = f'<p class="cover-time">时间：{"　".join(parts)}</p>'
 
-    notes = contest.get("notes") or [
+    notes = contest.notes or [
         "文件名（程序名和输入输出文件名）必须使用英文小写。",
         "main 函数的返回值类型必须是 int，程序正常结束时的返回值必须是 0。",
         "提交的程序代码文件的放置位置请参考各省的具体要求。",
@@ -399,7 +333,7 @@ def build_cover_html(contest, problems):
     notes_html = "".join(f"<li>{escape(n)}</li>" for n in notes)
 
     body = f"""
-<div class="cover-title">{escape(contest['name'])}</div>
+<div class="cover-title">{escape(contest.name)}</div>
 {time_line}
 {table}
 <div class="cover-section">注意事项（请仔细阅读）</div>
@@ -416,7 +350,7 @@ def build_combined_html(contest, problems, cover_html, sections_html):
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>{escape(contest['name'])}</title>
+<title>{escape(contest.name)}</title>
 {_base_style(with_header=False)}
 </head>
 <body>

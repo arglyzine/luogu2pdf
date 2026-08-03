@@ -1,7 +1,7 @@
 """template.py（HTML 后端）与共享工具函数测试。"""
 
-from template import (fmt_date, fmt_time_limit, fmt_memory, safe_filename,
-                      hint_title, _split_hint_html, _numbered_sample)
+from template import hint_title, _split_hint_html, _numbered_sample
+from utils import fmt_date, fmt_time_limit, fmt_memory, safe_filename
 
 
 def test_fmt_date():

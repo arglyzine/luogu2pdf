@@ -3,7 +3,8 @@
 import pytest
 
 from latex import (md_to_latex, _table_to_latex, _split_hint,
-                   fmt_time_range, _dashfix, _escape_special, _display_wrap)
+                   _escape_special, _display_wrap)
+from utils import dashfix, fmt_time_range
 
 
 # ---------------- 防作弊与警告块 ----------------
@@ -138,11 +139,11 @@ def test_fmt_time_range_no_range():
 
 
 def test_dashfix_dates():
-    assert _dashfix("2026-08-03 模拟赛") == "2026.08.03 模拟赛"
+    assert dashfix("2026-08-03 模拟赛") == "2026.08.03 模拟赛"
 
 
 def test_dashfix_keeps_other_hyphens():
-    assert _dashfix("NOIP-模拟赛 n-1") == "NOIP-模拟赛 n-1"
+    assert dashfix("NOIP-模拟赛 n-1") == "NOIP-模拟赛 n-1"
 
 
 def test_display_wrap():

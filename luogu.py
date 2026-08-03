@@ -168,7 +168,9 @@ EXTRACT_JS = r"""
 
 
 async def fetch_problem(browser, pid, work_dir):
-    """抓取单个题目，返回原始数据字典；失败抛 RuntimeError。"""
+    """抓取单个题目，返回 Problem 数据对象；失败抛 RuntimeError。"""
+    from model import Problem
+
     ctx = await browser.new_context(locale="zh-CN", user_agent=UA)
     page = await ctx.new_page()
     try:
@@ -183,6 +185,17 @@ async def fetch_problem(browser, pid, work_dir):
             raise RuntimeError(f"{pid}: 未能提取到题目信息")
         raw = json.dumps(data, ensure_ascii=False, indent=1)
         (work_dir / f"raw_{pid}.json").write_text(raw, encoding="utf-8")
-        return data
+        md = data.get("md", {})
+        return Problem(
+            pid=data.get("pid", pid),
+            title=data.get("title", pid),
+            time_limit=data.get("timeLimit", ""),
+            memory_limit=data.get("memoryLimit", ""),
+            sections=data.get("sections", {}),
+            samples=data.get("samples", []),
+            content=md.get("content", {}),
+            limits=md.get("limits", {}),
+            md_samples=md.get("samples", []),
+        )
     finally:
         await ctx.close()

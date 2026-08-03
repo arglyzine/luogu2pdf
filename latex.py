@@ -10,6 +10,8 @@ import subprocess
 import urllib.request
 from pathlib import Path
 
+from utils import fmt_time_range, dashfix
+
 ROOT = Path(__file__).resolve().parent
 CLS = ROOT / "assets" / "latex" / "statement.cls"
 
@@ -301,41 +303,12 @@ def _split_hint(hint):
     return out
 
 
-def fmt_time_range(raw):
-    """'9:00-13:00' -> '09:00 $\\sim$ 13:00'（官方封面时间格式：补零 + 数学波浪号，
-    两侧数学间距对称）。"""
-    s = str(raw).strip().replace("~", "-").replace("～", "-")
-    parts = re.split(r"\s*-\s*", s)
-    if len(parts) == 2:
-        def f(t):
-            m = re.match(r"(\d{1,2}):(\d{2})", t.strip())
-            return f"{int(m.group(1)):02d}:{m.group(2)}" if m else t.strip()
-        return f"{f(parts[0])} $\\sim$ {f(parts[1])}"
-    return s
-
-
-def _dashfix(s):
-    """日期数字之间的连字符改点号（YYYY.MM.DD 格式）。"""
-    return re.sub(r"(?<=\d)-(?=\d)", ".", s)
-
-
-def _english_name(problem):
-    """模拟赛显示名：english 或空（不暴露洛谷题号）。"""
-    return (problem.get("english") or "").strip()
-
-
-def _ename(problem, index):
-    """可执行文件名：english 或 t{编号}。"""
-    return _english_name(problem) or f"t{index}"
-
-
 def build_statement_tex(problem, contest, index, total, images):
     """生成单个题目的 .tex 文件内容（\section 形式，合集或单题共用）。"""
     sections = []
-    md = problem["md"]
-    content = md["content"]
-    name = content.get("name", problem.get("pid", ""))
-    samples = md.get("samples", [])
+    content = problem.content
+    name = content.get("name", problem.pid)
+    samples = problem.md_samples
 
     def sec(title, body, force=True):
         if body and body.strip():
@@ -350,7 +323,7 @@ def build_statement_tex(problem, contest, index, total, images):
     if content.get("formatO"):
         sec("输出格式", "输出到标准输出中。\n\n" + md_to_latex(content["formatO"], images))
 
-    samples = md.get("samples", [])
+    samples = problem.md_samples
     if samples:
         for n, pair in enumerate(samples, 1):
             inp, outp = pair[0], pair[1] if len(pair) > 1 else ""
@@ -374,7 +347,7 @@ def build_statement_tex(problem, contest, index, total, images):
                     r"数据范围|测试点|对于\s*100\s*%", hbody) else "提示")
                 sec(title, md_to_latex(hbody, images))
 
-    en = _english_name(problem)
+    en = problem.english_name
     head = (f"\\section{{{name}（\\englishname{{{en}}}）}}\n" if en
             else f"\\section{{{name}}}\n")
     return head + "\n".join(sections)
@@ -392,13 +365,13 @@ def build_cover_tex(contest, problems, images):
     版式对照 NOIP 官方封面：标题 22pt 黑体、时间行 15pt、
     信息表格（目录/可执行文件名/测试点数目等）、数据列居中。
     """
-    names = [p["md"]["content"].get("name", p.get("pid", "")) for p in problems]
-    enames = [_ename(p, i) for i, p in enumerate(problems, 1)]
+    names = [p.content.get("name", p.pid) for p in problems]
+    enames = [p.exec_name for p in problems]
     limits = []
     mems = []
     testcnt = []
     for p in problems:
-        lim = p["md"].get("limits", {})
+        lim = p.limits
         t = lim.get("time", [0])
         m = lim.get("memory", [0])
         limits.append(f"{max(t) / 1000:.1f} 秒" if t else "")
@@ -437,15 +410,15 @@ def build_cover_tex(contest, problems, images):
                      + "\\end{tabularx}\n\\end{center}")
 
     time_line = ""
-    if contest.get("date") or contest.get("time"):
-        m = re.match(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})", str(contest.get("date", "")))
-        date = (f"{m.group(1)} 年 {int(m.group(2))} 月 {int(m.group(3))} 日") if m else contest.get("date", "")
+    if contest.date or contest.time:
+        m = re.match(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})", str(contest.date))
+        date = (f"{m.group(1)} 年 {int(m.group(2))} 月 {int(m.group(3))} 日") if m else contest.date
         # 官方时间格式：08:30 ∼ 13:00（补零 + 波浪线）
-        t = fmt_time_range(contest.get("time", ""))
-        duration = contest.get("duration", "")
+        t = fmt_time_range(contest.time)
+        duration = contest.duration
         time_line = f"\\fontsize{{15}}{{22}}\\selectfont \\rmfamily 时间：{date} {t}（{duration}）\n\\vskip 0.5em"
 
-    notes = contest.get("notes") or [
+    notes = contest.notes or [
         "文件名（程序名和输入输出文件名）必须使用英文小写。",
         "main 函数的返回值类型必须是 int，程序正常结束时的返回值必须是 0。",
         "提交的程序代码文件的放置位置请参考各省的具体要求。",
@@ -459,7 +432,7 @@ def build_cover_tex(contest, problems, images):
     return f"""\\begin{{titlepage}}
 \\vspace*{{-20mm}}
 \\begin{{center}}
-{{\\fontsize{{22}}{{32}}\\selectfont \\heiti {_dashfix(contest['name'])}}}\\\\
+{{\\fontsize{{22}}{{32}}\\selectfont \\heiti {dashfix(contest.name)}}}\\\\
 \\vskip 0.6em
 {time_line}
 \\vskip 0.8em
@@ -503,7 +476,7 @@ __BODY__
 
 def build_problem_doc(contest, index, total, body_rel):
     """单题完整文档：preamble + \input 引用题面 body（可独立编译）。"""
-    title = _dashfix(contest["name"])
+    title = dashfix(contest.name)
     return _PREAMBLE.replace("__TITLE__", title).replace("__BODY__", f"\\input{{{body_rel}}}")
 
 
@@ -513,7 +486,7 @@ def build_combined_doc(contest, problems, images, body_rels):
     # 封面占第 1 页（无页码），正文从第 2 页开始（与官方一致）
     sections = "\n\n\\newpage\n\n".join(f"\\input{{{r}}}" for r in body_rels)
     body = cover + "\n\n\\setcounter{page}{2}\n\n\\newpage\n\n" + sections
-    title = _dashfix(contest["name"])
+    title = dashfix(contest.name)
     return _PREAMBLE.replace("__TITLE__", title).replace("__BODY__", body)
 
 

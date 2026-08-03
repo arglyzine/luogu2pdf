@@ -25,9 +25,10 @@ sys.path.insert(0, str(ROOT))
 from playwright.async_api import async_playwright
 
 from luogu import fetch_problem
+from model import Contest, Problem
 from template import (build_cover_html, build_problem_html,
-                      build_problem_section, build_combined_html,
-                      safe_filename)
+                      build_problem_section, build_combined_html)
+from utils import safe_filename
 from latex import (build_statement_tex, build_problem_doc,
                       build_combined_doc, build_build_script, compile_latex)
 
@@ -76,13 +77,13 @@ def load_config(path):
 
 
 def merge_config(args, cfg):
-    contest = {
-        "name": args.contest or cfg.get("contest", "模拟赛"),
-        "date": args.date or cfg.get("date", ""),
-        "time": args.time or cfg.get("time", ""),
-        "duration": args.duration or cfg.get("duration", ""),
-        "notes": cfg.get("notes"),
-    }
+    contest = Contest(
+        name=args.contest or cfg.get("contest", "模拟赛"),
+        date=args.date or cfg.get("date", ""),
+        time=args.time or cfg.get("time", ""),
+        duration=args.duration or cfg.get("duration", ""),
+        notes=cfg.get("notes") or [],
+    )
     problems = cfg["problems"]
     if args.problems:
         problems = [{"pid": p.strip()} for p in args.problems.split(",") if p.strip()]
@@ -99,12 +100,12 @@ async def fetch_all(browser, problems, work_dir):
         print(f"\n[{i}/{len(problems)}] 抓取 {pid} ...", flush=True)
         try:
             data = await fetch_problem(browser, pid, work_dir)
-            data["index"] = i
-            data["english"] = prob.get("english", "")
-            data["type"] = prob.get("type", "传统型")
+            data.index = i
+            data.english = prob.get("english", "")
+            data.type = prob.get("type", "传统型")
             datas.append(data)
-            print(f"  完成: {data['title']} | {data.get('timeLimit', '')} / "
-                  f"{data.get('memoryLimit', '')} | {len(data.get('samples', []))} 组样例")
+            print(f"  完成: {data.title} | {data.time_limit} / "
+                  f"{data.memory_limit} | {len(data.samples)} 组样例")
         except Exception as e:
             print(f"  失败: {e}")
     if not datas:
@@ -114,8 +115,8 @@ async def fetch_all(browser, problems, work_dir):
 
 def pdf_name(data, out_dir):
     """输出文件名：第X题-题名.pdf（不暴露洛谷题号）。"""
-    en = (data.get("english") or "").strip()
-    title = safe_filename(data["title"])
+    en = data.english_name
+    title = safe_filename(data.title)
     if en:
         return out_dir / f"第{data['index']}题-{safe_filename(en)}-{title}.pdf"
     return out_dir / f"第{data['index']}题-{title}.pdf"
@@ -127,8 +128,8 @@ async def run_html(browser, datas, contest, out_dir, args):
     ctx = await browser.new_context(locale="zh-CN")
     try:
         for data in datas:
-            pid = data["pid"]
-            html = build_problem_html(data, contest, data["index"], len(datas))
+            pid = data.pid
+            html = build_problem_html(data, contest, data.index, len(datas))
             html_path = WORK_DIR / f"problem_{pid}.html"
             html_path.write_text(html, encoding="utf-8")
             if args.keep_html:
@@ -167,7 +168,7 @@ async def run_html(browser, datas, contest, out_dir, args):
                 try:
                     await page.goto(html_path.as_uri(), wait_until="networkidle", timeout=60000)
                     await page.evaluate("document.fonts.ready.then(() => true)")
-                    merge_path = out_dir / f"{safe_filename(contest['name'])}-题面合集.pdf"
+                    merge_path = out_dir / f"{safe_filename(contest.name)}-题面合集.pdf"
                     await page.pdf(
                         path=str(merge_path), format="A4", print_background=True,
                         margin={"top": "25mm", "bottom": "20mm",
@@ -201,22 +202,22 @@ def run_latex(datas, contest, out_dir, args):
     # 1) 题面 body（只含 \section 内容，单题与合集共用 \input）
     body_rels = []
     for data in datas:
-        bname = f"第{data['index']}题-{safe_filename(data['title'])}.tex"
-        data["statement_tex"] = build_statement_tex(
-            data, contest, data["index"], len(datas), images)
-        (body_dir / bname).write_text(data["statement_tex"], encoding="utf-8")
+        bname = f"第{data.index}题-{safe_filename(data.title)}.tex"
+        data.statement_tex = build_statement_tex(
+            data, contest, data.index, len(datas), images)
+        (body_dir / bname).write_text(data.statement_tex, encoding="utf-8")
         body_rels.append(f"题面/{bname}")
 
     # 2) 单题文档 + 合集文档（引用 body）
     tex_names = []
     for data in datas:
-        tname = f"第{data['index']}题-{safe_filename(data['title'])}.tex"
+        tname = f"第{data.index}题-{safe_filename(data.title)}.tex"
         (tex_out / tname).write_text(
-            build_problem_doc(contest, data["index"], len(datas),
+            build_problem_doc(contest, data.index, len(datas),
                               f"题面/{tname}"),
             encoding="utf-8")
         tex_names.append(tname)
-    comb_name = f"{safe_filename(contest['name'])}-题面合集.tex"
+    comb_name = f"{safe_filename(contest.name)}-题面合集.tex"
     if not args.no_merge:
         (tex_out / comb_name).write_text(
             build_combined_doc(contest, datas, images, body_rels),
@@ -248,10 +249,10 @@ async def run(args):
     contest, problems = merge_config(args, cfg)
 
     WORK_DIR.mkdir(exist_ok=True)
-    out_dir = args.output_dir / safe_filename(contest["name"])
+    out_dir = args.output_dir / safe_filename(contest.name)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"比赛: {contest['name']} | {contest['date']} | {contest['time']}（{contest['duration']}）")
+    print(f"比赛: {contest.name} | {contest.date} | {contest.time}（{contest.duration}）")
     print(f"题目: {', '.join(p['pid'] for p in problems)}")
     print(f"输出: {out_dir}")
     print(f"后端: {'LaTeX' if args.latex else 'HTML'}")
@@ -262,8 +263,8 @@ async def run(args):
             datas = await fetch_all(browser, problems, WORK_DIR)
             if args.latex:
                 for d in datas:
-                    if not d.get("md") or not d["md"].get("content"):
-                        sys.exit(f"\n错误: {d['pid']} 缺少 Markdown 数据（LaTeX 后端需要），抓取可能失败")
+                    if not d.content:
+                        sys.exit(f"\n错误: {d.pid} 缺少 Markdown 数据（LaTeX 后端需要），抓取可能失败")
                 pdf_paths = run_latex(datas, contest, out_dir, args)
             else:
                 pdf_paths = await run_html(browser, datas, contest, out_dir, args)
