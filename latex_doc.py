@@ -80,8 +80,12 @@ def build_statement_tex(problem, contest, index, total, images):
 
 
 def _sample_block(text):
-    """样例 → minted（行号 + tcolorbox 蓝框）。"""
-    escaped = text.rstrip("\n").replace("\\", r"\textbackslash{}")
+    """样例 → minted 样例框（行号 + 蓝框）。
+
+    内容规范化为每行以换行结尾（verbatim 对无尾随换行的最后一行
+    会重复渲染）。"""
+    escaped = text.rstrip("\n") + "\n"
+    escaped = escaped.replace("\\", r"\textbackslash{}")
     return _env.get_template("sample.tex.j2").render(content=escaped)
 
 

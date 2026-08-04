@@ -52,23 +52,29 @@
 \RequirePackage{lineno}
 \RequirePackage{fancyvrb}
 \renewcommand{\theFancyVerbLine}{\ttfamily\textcolor{gray}{\footnotesize\arabic{FancyVerbLine}}}
-\tcbuselibrary{most, minted}
+\tcbuselibrary{most}
+
+\usepackage{etoolbox}
+% 样例框（minted 3.8 后端自带跨页能力，tcolorbox 包裹分帧）：
+% toprule/bottomrule at break=0pt —— 断页续帧处不画横线，
+% 中间帧只有左右线（「下一页还有 → 本页无底部边框」效果）
+\BeforeBeginEnvironment{minted}{
+    \begin{tcolorbox}[
+        colframe=blue,
+        breakable=true,
+        colback = white,
+        boxrule = 0.5pt,
+        left=2mm,
+        toprule at break=0pt,
+        bottomrule at break=0pt,
+        ]}
+\AfterEndEnvironment{minted}{\end{tcolorbox}}
 
 % 引用/说明块（admonition 样式：左侧粗线 + 浅灰底 + 直角，
 % 参考 tex.stackexchange.com/q/687578）
 \newtcolorbox{callout}[1][]{breakable, sharp corners, parbox=false,
   boxrule=0mm, leftrule=2mm, boxsep=0mm, arc=0mm, outer arc=0mm,
   colback=gray!8, colframe=black, #1}
-
-% 样例框：tcolorbox minted 集成（listing engine=minted + breakable，
-% 样例内容可跨页——\BeforeBeginEnvironment{minted} 包裹 verbatim 无法分页）
-\newtcblisting{example}{
-  listing engine=minted,
-  minted language=text,
-  minted options={linenos},
-  colframe=blue, breakable=true, colback=white,
-  boxrule=0.5pt, left=2mm,
-}
 
 
 \RequirePackage{xeCJKfntef}
