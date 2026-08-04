@@ -27,6 +27,14 @@ def test_export_samples(tmp_path):
     assert not (tmp_path / "data" / "t3").exists()
 
 
+def test_export_samples_newline_appended(tmp_path):
+    # 洛谷样例无结尾换行，导出时应补齐（数据文件惯例）
+    d = _problem("P1", "题一", 1, [["2", "2"]])
+    export_samples([d], tmp_path)
+    assert (tmp_path / "data" / "t1" / "1.in").read_text() == "2\n"
+    assert (tmp_path / "data" / "t1" / "1.out").read_text() == "2\n"
+
+
 def test_export_samples_english_name(tmp_path):
     d = Problem(pid="P1", title="题一", english="past", index=1,
                 md_samples=[["a\n", "b\n"]])

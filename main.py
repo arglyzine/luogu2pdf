@@ -315,9 +315,18 @@ def run_latex(datas, contest, out_dir, args):
 
 
 def export_samples(datas, out_dir):
-    """把样例输入输出导出为 data/<可执行文件名>/{n}.in / {n}.out。"""
+    """把样例输入输出导出为 data/<可执行文件名>/{n}.in / {n}.out。
+
+    洛谷样例文本无结尾换行；数据文件按惯例以换行结尾（评测/比对按行处理），
+    统一补齐。"""
     data_dir = out_dir / "data"
     count = 0
+
+    def write(path, text):
+        if not text.endswith("\n"):
+            text += "\n"
+        path.write_text(text, encoding="utf-8")
+
     for d in datas:
         samples = d.md_samples
         if not samples:
@@ -326,9 +335,9 @@ def export_samples(datas, out_dir):
         pdir.mkdir(parents=True, exist_ok=True)
         for n, pair in enumerate(samples, 1):
             inp, outp = pair[0], pair[1] if len(pair) > 1 else ""
-            (pdir / f"{n}.in").write_text(inp, encoding="utf-8")
+            write(pdir / f"{n}.in", inp)
             if outp:
-                (pdir / f"{n}.out").write_text(outp, encoding="utf-8")
+                write(pdir / f"{n}.out", outp)
             count += 1
     if count:
         log.info("样例数据已导出: %s（%d 组）", data_dir, count)
