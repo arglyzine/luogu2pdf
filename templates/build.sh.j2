@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 一键重新编译全部题面（并行）：每道题 + 合集
-# 三遍：draftmode（生成 aux/minted 缓存，不写 PDF）→ 正式 → 正式（收敛引用）
+# 两遍正式输出（写 aux 与解析引用，标准收敛；不要用 -draftmode 第一遍，
+# 否则需第三遍且总时间更长）
 # xelatex 日志静默，只显示进度与失败摘要
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -14,15 +15,11 @@ count=$(printf '%s\n' "${files[@]}" | wc -l)
 [ "$njobs" -gt "$count" ] && njobs="$count"
 [ "$njobs" -lt 1 ] && njobs=1
 
-echo "[build] 第一遍：draftmode（$njobs 并发）"
-printf '%s\n' "${files[@]}" | xargs -P "$njobs" -I{} sh -c \
-  'xelatex -draftmode -shell-escape -interaction=nonstopmode -halt-on-error "$1" >/dev/null 2>&1 || true' _ {}
-
-echo "[build] 第二遍：正式输出"
+echo "[build] 第一遍（$njobs 并发）"
 printf '%s\n' "${files[@]}" | xargs -P "$njobs" -I{} \
   xelatex -shell-escape -interaction=nonstopmode -halt-on-error {} >/dev/null 2>&1 || true
 
-echo "[build] 第三遍：收敛引用（TotPages）"
+echo "[build] 第二遍：收敛引用（TotPages）"
 printf '%s\n' "${files[@]}" | xargs -P "$njobs" -I{} \
   xelatex -shell-escape -interaction=nonstopmode -halt-on-error {} >/dev/null 2>&1 || true
 
