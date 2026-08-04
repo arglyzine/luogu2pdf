@@ -38,7 +38,8 @@ from latex_doc import (build_statement_tex, build_problem_doc,
 
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.progress import Progress, ProgressColumn, TextColumn
+from rich.progress import (BarColumn, Progress, ProgressColumn,
+                       TaskProgressColumn, TextColumn)
 from rich.spinner import Spinner
 from rich.text import Text
 
@@ -57,6 +58,13 @@ class _StatusColumn(ProgressColumn):
 SPINNER_COLUMNS = [
     TextColumn("[progress.description]{task.description}"),
     _StatusColumn(),
+]
+
+# 抓取用进度条（题目数量固定，25% 步进有意义）
+FETCH_COLUMNS = [
+    TextColumn("[progress.description]{task.description}"),
+    BarColumn(),
+    TaskProgressColumn(),
 ]
 
 console = Console()
@@ -179,30 +187,26 @@ def merge_config(args, cfg):
 
 
 async def fetch_all(browser, problems, work_dir):
-    """抓取所有题目（每行 spinner，完成打 ✓/✗），返回数据列表。"""
+    """抓取所有题目（进度条，题目数量固定），返回数据列表。"""
     datas = []
-    with Progress(*SPINNER_COLUMNS, console=console) as progress:
-        tasks = {}
-        for prob in problems:
-            pid = prob["pid"]
-            tasks[pid] = progress.add_task(f"[cyan]抓取 {pid}[/cyan]", total=None)
+    with Progress(*FETCH_COLUMNS, console=console) as progress:
+        task = progress.add_task("[cyan]抓取题目[/cyan]", total=len(problems))
         for i, prob in enumerate(problems, 1):
             pid = prob["pid"]
+            progress.update(task, description=f"[cyan]抓取 {pid}[/cyan]")
             try:
                 data = await fetch_problem(browser, pid, work_dir)
                 data.index = i
                 data.english = prob.get("english", "")
                 data.type = prob.get("type", "传统型")
                 datas.append(data)
-                progress.update(tasks[pid], total=1, completed=1,
-                                description=f"[green]✓[/green] {data.title}")
                 log.info("  完成: %s | %s / %s | %d 组样例",
                          data.title, data.time_limit, data.memory_limit,
                          len(data.samples))
             except Exception as e:
-                progress.update(tasks[pid], total=1, completed=1,
-                                description=f"[red]✗[/red] {pid}")
                 log.error("  失败(%s): %s", pid, e)
+            progress.advance(task)
+        progress.update(task, description="[green]✓ 抓取完成[/green]")
     if not datas:
         sys.exit("\n错误：所有题目都抓取失败")
     return datas
