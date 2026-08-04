@@ -156,17 +156,24 @@ def parse_args():
     ap.add_argument("--problems", help="题号列表，逗号分隔，如 P17169,P17170")
     ap.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT,
                     help="输出目录，默认 output/")
+    ap.add_argument("--backend", choices=["html", "latex"], default="html",
+                    help="渲染后端（默认 html；需要 xelatex + minted + pygments）")
     ap.add_argument("--latex", action="store_true",
-                    help="用 LaTeX 生成（需要 xelatex + minted + pygments）")
+                    help="等价 --backend latex（兼容旧用法）")
     ap.add_argument("--no-merge", action="store_true", help="不生成合集 PDF")
-    ap.add_argument("--keep-html", action="store_true", help="保留中间 HTML/TeX")
+    ap.add_argument("--keep-html", action="store_true",
+                    help="保留中间 HTML（仅 HTML 后端，输出到 <比赛名>/html/；"
+                         "LaTeX 后端的 tex 源码始终在 tex/）")
     ap.add_argument("--log-dir", type=Path, default=None,
                     help="日志文件目录（默认 .work/logs）")
     ap.add_argument("--no-stdout", action="store_true",
                     help="终端完全静默（日志只写文件，供脚本调用）")
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="显示完整日志（默认只显示进度条与关键信息）")
-    return ap.parse_args()
+    args = ap.parse_args()
+    if args.latex:
+        args.backend = "latex"
+    return args
 
 
 def load_config(path):
@@ -289,71 +296,95 @@ def split_segments_by_problems(pdf_path, datas):
 
 
 async def run_html(browser, datas, contest, out_dir, args):
-    """HTML 后端：Chromium 打印 PDF（页眉用 headerTemplate，每页重复）。"""
+    """HTML 后端：Chromium 打印 PDF（页眉用 headerTemplate，每页重复）。
+
+    --keep-html 时中间 HTML 保留到 output/<比赛名>/html/（默认只写入
+    .work 临时区，供 page.pdf 加载）。"""
     pdf_paths = []
     ctx = await browser.new_context(locale="zh-CN")
     try:
-        for data in datas:
-            pid = data.pid
-            html = build_problem_html(data, contest, data.index, len(datas))
-            html_path = WORK_DIR / f"problem_{pid}.html"
-            html_path.write_text(html, encoding="utf-8")
-            if args.keep_html:
-                log.info("HTML 已保存: %s", html_path)
+        html_dir = out_dir / "html" if args.keep_html else None
+        if html_dir:
+            html_dir.mkdir(exist_ok=True)
+            console.print(f"[bold cyan]HTML[/bold cyan]: 中间文件保留至 "
+                          f"{_rel(html_dir)}", highlight=False)
 
-            log.info("生成 PDF: %s ...", pid)
-            page = await ctx.new_page()
-            try:
-                await page.goto(html_path.as_uri(), wait_until="networkidle", timeout=60000)
-                await page.evaluate("document.fonts.ready.then(() => true)")
-                pdf_path = pdf_name(data, out_dir)
-                en = data.english_name
-                right = f"{data.title}（{en}）" if en else data.title
-                await page.pdf(
-                    path=str(pdf_path), format="A4", print_background=True,
-                    margin={"top": "25mm", "bottom": "20mm",
-                            "left": "27mm", "right": "27mm"},
-                    footer_template=FOOTER_HTML,
-                    header_template=header_html(dashfix(contest.name), right),
-                    display_header_footer=True,
-                )
-                pdf_paths.append(pdf_path)
-                log.info("  完成: %s", pdf_path.name)
-            except Exception as e:
-                log.error("  失败: %s", e)
-            finally:
-                await page.close()
-
-        if not args.no_merge:
-            log.info("生成合集 PDF ...")
-            try:
-                cover_body = build_cover_html(contest, datas)
-                sections = "\n".join(build_problem_section(d, contest) for d in datas)
-                html = build_combined_html(contest, datas, cover_body, sections)
-                html_path = WORK_DIR / "combined.html"
+        with Progress(*SPINNER_COLUMNS, console=console) as progress:
+            tasks = {}
+            for data in datas:
+                tname = f"第{data.index}题-{safe_filename(data.title)}"
+                tasks[data.pid] = progress.add_task(f"[cyan]{tname}[/cyan]",
+                                                    total=None)
+            for data in datas:
+                pid = data.pid
+                html = build_problem_html(data, contest, data.index, len(datas))
+                html_path = WORK_DIR / f"problem_{pid}.html"
                 html_path.write_text(html, encoding="utf-8")
+                if html_dir:
+                    (html_dir / f"第{data.index}题-"
+                     f"{safe_filename(data.title)}.html").write_text(
+                        html, encoding="utf-8")
                 page = await ctx.new_page()
                 try:
-                    await page.goto(html_path.as_uri(), wait_until="networkidle", timeout=60000)
+                    await page.goto(html_path.as_uri(), wait_until="networkidle",
+                                    timeout=60000)
                     await page.evaluate("document.fonts.ready.then(() => true)")
-                    merge_path = out_dir / f"{safe_filename(contest.name)}-题面合集.pdf"
+                    pdf_path = pdf_name(data, out_dir)
+                    en = data.english_name
+                    right = f"{data.title}（{en}）" if en else data.title
                     await page.pdf(
-                        path=str(merge_path), format="A4", print_background=True,
+                        path=str(pdf_path), format="A4", print_background=True,
                         margin={"top": "25mm", "bottom": "20mm",
                                 "left": "27mm", "right": "27mm"},
-                        header_template="<div></div>", footer_template="<div></div>",
+                        footer_template=FOOTER_HTML,
+                        header_template=header_html(dashfix(contest.name), right),
                         display_header_footer=True,
                     )
-                    # 按题分段叠加页眉（右侧题名）与全局页码（第 1 页封面无页眉页码）
-                    from overlay import apply_overlay
-                    segs = split_segments_by_problems(merge_path, datas)
-                    total = __import__("pypdf").PdfReader(str(merge_path)).get_num_pages()
-                    apply_overlay(merge_path, merge_path, contest.name, segs, total)
-                    log.info("  完成: %s", merge_path.name)
+                    pdf_paths.append(pdf_path)
+                    progress.update(tasks[pid], total=1, completed=1, ok=True)
+                except Exception as e:
+                    progress.update(tasks[pid], total=1, completed=1, ok=False)
+                    log.error("  失败(%s): %s", pid, e)
                 finally:
                     await page.close()
-            except Exception as e:
-                log.error("  合集失败: %s", e)
+
+            if not args.no_merge:
+                comb_name = f"{safe_filename(contest.name)}-题面合集"
+                task = progress.add_task(f"[cyan]{comb_name}[/cyan]", total=None)
+                try:
+                    cover_body = build_cover_html(contest, datas)
+                    sections = "\n".join(build_problem_section(d, contest)
+                                         for d in datas)
+                    html = build_combined_html(contest, datas, cover_body, sections)
+                    html_path = WORK_DIR / "combined.html"
+                    html_path.write_text(html, encoding="utf-8")
+                    if html_dir:
+                        (html_dir / f"{comb_name}.html").write_text(
+                            html, encoding="utf-8")
+                    page = await ctx.new_page()
+                    try:
+                        await page.goto(html_path.as_uri(), wait_until="networkidle",
+                                        timeout=60000)
+                        await page.evaluate("document.fonts.ready.then(() => true)")
+                        merge_path = out_dir / f"{comb_name}.pdf"
+                        await page.pdf(
+                            path=str(merge_path), format="A4", print_background=True,
+                            margin={"top": "25mm", "bottom": "20mm",
+                                    "left": "27mm", "right": "27mm"},
+                            header_template="<div></div>", footer_template="<div></div>",
+                            display_header_footer=True,
+                        )
+                        # 按题分段叠加页眉（右侧题名）与全局页码（封面无页眉页码）
+                        from overlay import apply_overlay
+                        segs = split_segments_by_problems(merge_path, datas)
+                        total = __import__("pypdf").PdfReader(str(merge_path)).get_num_pages()
+                        apply_overlay(merge_path, merge_path, contest.name, segs, total)
+                        progress.update(task, total=1, completed=1, ok=True)
+                    finally:
+                        await page.close()
+                except Exception as e:
+                    progress.update(task, total=1, completed=1, ok=False)
+                    log.error("  合集失败: %s", e)
     finally:
         await ctx.close()
     return pdf_paths
@@ -362,6 +393,9 @@ async def run_html(browser, datas, contest, out_dir, args):
 def run_latex(datas, contest, out_dir, args):
     """LaTeX 后端：输出可独立编译的 tex 源码（题面 body 分离 + 编译脚本），
     编译生成每题 + 合集 PDF。"""
+    if args.keep_html:
+        log.warning("--keep-html 仅影响 HTML 后端；"
+                    "LaTeX 中间产物（tex/）始终保留在输出目录")
     import shutil
     tex_out = out_dir / "tex"
     tex_out.mkdir(parents=True, exist_ok=True)
@@ -545,7 +579,7 @@ async def run(args):
                   f"{', '.join(p['pid'] for p in problems)}",
                   highlight=False)
     console.print(f"[bold cyan]后端[/bold cyan]: "
-                  f"{'LaTeX' if args.latex else 'HTML'}　"
+                  f"{'LaTeX' if args.backend == 'latex' else 'HTML'}　"
                   f"[dim]输出 {_rel(out_dir)}[/dim]",
                   highlight=False)
 
@@ -554,7 +588,7 @@ async def run(args):
         try:
             datas = await fetch_all(browser, problems, WORK_DIR)
             export_samples(datas, out_dir)
-            if args.latex:
+            if args.backend == "latex":
                 for d in datas:
                     if not d.content:
                         sys.exit(f"\n错误: {d.pid} 缺少 Markdown 数据（LaTeX 后端需要），抓取可能失败")

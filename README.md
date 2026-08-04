@@ -145,10 +145,10 @@ cd output/<比赛名>/
 
 | 参数 | 作用 |
 |------|------|
-| `--latex` | 用 LaTeX 生成（xelatex + minted），默认 HTML |
+| `--backend {html,latex}` | 渲染后端（默认 html）；`--latex` 为等价快捷写法 |
 | `--output-dir DIR` | 改输出目录（默认 `output/`） |
 | `--no-merge` | 不生成合集 PDF |
-| `--keep-html` | 保留中间 HTML/TeX（默认在 `.work/`，供调试） |
+| `--keep-html` | 保留中间 HTML 到 `<比赛名>/html/`（仅 HTML 后端；LaTeX 的 tex 源码始终在 `tex/`） |
 | `--config FILE` | 指定其他配置文件 |
 
 终端输出使用 rich 彩色日志（级别着色、时间戳、失败回溯）。
