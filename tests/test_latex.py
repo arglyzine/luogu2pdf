@@ -241,3 +241,36 @@ def test_nested_in_enumerate():
 2. 第二编号项"""
     out = md_to_latex(md, None)
     assert "begin{enumerate}" in out and "begin{itemize}" in out
+
+
+# ---------------- 分割线与引用 ----------------
+
+def test_hr_rule():
+    out = md_to_latex("上文\n\n---\n\n下文", None)
+    assert "\\rule{\\textwidth}{0.4pt}" in out
+    assert "---" not in out
+
+
+def test_quote_tcolorbox():
+    out = md_to_latex("> 她说：**毕业晚会**后。\n> 少年傍着少女。\n\n正文", None)
+    assert "tcolorbox" in out
+    assert "\\stress{毕业晚会}" in out
+
+
+def test_quote_empty_lines_merged():
+    # 引用内 > 空行是段分隔，不是新块；> 空行不产生字面输出
+    md = "> 第一段\n>\n> 第二段\n>\n> 第三段"
+    out = md_to_latex(md, None)
+    assert out.count("\\begin{tcolorbox}") == 1
+    assert not any(l.strip() == ">" for l in out.split("\n"))
+
+
+def test_quote_not_swallowed_by_para():
+    # 段落中途出现引用行不应被并入段落
+    out = md_to_latex("段落前\n> 引用行\n段落后", None)
+    assert "tcolorbox" in out
+
+
+def test_hr_not_swallowed_by_para():
+    out = md_to_latex("段落前\n---\n段落后", None)
+    assert "\\rule" in out

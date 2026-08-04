@@ -157,6 +157,24 @@ def _split_blocks(md):
                 tbl.append(lines[i].strip())
                 i += 1
             blocks.append(("table", tbl))
+        elif re.match(r"^\s*---+\s*$", line):
+            # 分割线（markdown ---）
+            i += 1
+            blocks.append(("hr", None))
+        elif re.match(r"^\s*>\s*$", line) or re.match(r"^\s*>\s", line):
+            # 引用块：连续 > 行；单独的 > 作为段分隔
+            quote = []
+            while i < len(lines):
+                l = lines[i]
+                if re.match(r"^\s*>\s*$", l):
+                    quote.append("")
+                    i += 1
+                elif re.match(r"^\s*>\s", l):
+                    quote.append(re.sub(r"^\s*>\s*", "", l))
+                    i += 1
+                else:
+                    break
+            blocks.append(("quote", "\n".join(quote)))
         elif re.match(r"^\s*[-*]\s+", line) or re.match(r"^\s*\d+\.\s+", line):
             block, i = _collect_list(lines, i, len(line) - len(line.lstrip()))
             blocks.append(block)
@@ -164,6 +182,8 @@ def _split_blocks(md):
             para = []
             while i < len(lines) and lines[i].strip() and not re.match(r"^\s*\|", lines[i]) \
                     and not re.match(r"^\s*[-*]\s+", lines[i]) and not re.match(r"^\s*\d+\.\s+", lines[i]) \
+                    and not re.match(r"^\s*>\s*$", lines[i]) and not re.match(r"^\s*>\s", lines[i]) \
+                    and not re.match(r"^\s*---+\s*$", lines[i]) \
                     and not lines[i].lstrip().startswith("```"):
                 para.append(lines[i].strip())
                 i += 1
@@ -253,6 +273,15 @@ def md_to_latex(md, images):
             out.append(r"\begin{verbatim}" + code + r"\end{verbatim}")
         elif kind == "table":
             out.append(_table_to_latex(content))
+        elif kind == "hr":
+            out.append(r"\noindent\rule{\textwidth}{0.4pt}")
+        elif kind == "quote":
+            # 引用块：tcolorbox 浅底框（同题面样例框的 tcolorbox 样式体系）
+            body = "\n\n".join(_inline(x, images) for x in content.split("\n\n"))
+            out.append(
+                r"\begin{tcolorbox}[colback=gray!6,colframe=gray!50,"
+                r"boxrule=0.4pt,left=4mm,right=4mm,top=1.5mm,bottom=1.5mm]"
+                + "\n" + body + "\n" + r"\end{tcolorbox}")
     return "\n\n".join(out)
 
 
