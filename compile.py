@@ -8,11 +8,16 @@ ROOT = Path(__file__).resolve().parent
 
 
 def compile_latex(tex_path, venv_bin, progress_cb=None):
-    """用 xelatex -shell-escape 编译（第一遍 -draftmode 生成 aux，
-    第二遍正式输出，处理 LastPage 引用）。
+    """用 xelatex -shell-escape 编译三遍：
 
-    progress_cb(step)：可选回调，step=1（draftmode 完成）后调用，
-    step=2（正式输出完成）后调用，供进度条显示中间状态。
+    1. -draftmode（生成 aux 与 minted 缓存，不写 PDF）
+    2. 正式输出（写入 aux 的 label，如 TotPages）
+    3. 正式输出（解析 label，收敛页脚/引用）
+
+    draftmode 那遍不算有效的写 aux 遍，故需三遍；两遍会残留
+    「共?? 页」与 minted 占位符。
+    progress_cb(step)：可选回调，step=1（draftmode 完成）、step=2
+    （正式输出完成）后调用。
     返回 (True, PDF路径) 或 (False, 错误信息)。"""
     env = dict(os.environ)
     if venv_bin:
@@ -28,7 +33,14 @@ def compile_latex(tex_path, venv_bin, progress_cb=None):
     )
     if progress_cb:
         progress_cb(1)
-    # 第二遍：正式输出 PDF
+    # 第二遍：正式输出 PDF（写 label）
+    subprocess.run(
+        ["xelatex", "-shell-escape", "-interaction=nonstopmode",
+         "-halt-on-error", tex_path.name],
+        cwd=tex_path.parent, env=env,
+        capture_output=True, text=True, timeout=600,
+    )
+    # 第三遍：解析 label（TotPages 等收敛）
     r = subprocess.run(
         ["xelatex", "-shell-escape", "-interaction=nonstopmode",
          "-halt-on-error", tex_path.name],
