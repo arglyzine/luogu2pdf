@@ -85,8 +85,10 @@ def apply_overlay(pdf_in, pdf_out, contest_name, segments, total_pages):
     """segments: [(起始页(0-based), 结束页(0-based), 题名)]，封面段题名为 None。
     pdf_in 可为路径或文件流。"""
     reader = PdfReader(str(pdf_in)) if isinstance(pdf_in, (str, __import__("os").PathLike)) else PdfReader(pdf_in)
-    writer = PdfWriter()
-    for i, page in enumerate(reader.pages):
+    # clone_from 让页面归属 writer（对未绑定 writer 的页面调用 merge_page
+    # 会触发 pypdf 弃用警告：replace_contents 依赖 writer 上下文才可靠）
+    writer = PdfWriter(clone_from=reader)
+    for i, page in enumerate(writer.pages):
         w, h = page.mediabox.width, page.mediabox.height
         if i > 0:
             title = next((t for s, e, t in segments if s <= i <= e and t), "")
@@ -94,6 +96,5 @@ def apply_overlay(pdf_in, pdf_out, contest_name, segments, total_pages):
             page.merge_page(PdfReader(header).pages[0])
             footer = _page_number_packet(i + 1, total_pages, w, h)
             page.merge_page(PdfReader(footer).pages[0])
-        writer.add_page(page)
     with open(pdf_out, "wb") as f:
         writer.write(f)
