@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# 一键重新编译全部题面：每道题 + 合集，共 $(ls *.tex | wc -l) 个 PDF
-# 并行编译（文件间独立）；第一遍 -draftmode 只生成 aux（引用解析），第二遍正式输出
+# 一键重新编译全部题面（并行）：每道题 + 合集
+# 第一遍 -draftmode 只生成 aux（引用解析）；第二遍正式输出
+# xelatex 日志静默，只显示进度与失败摘要
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -13,14 +14,24 @@ count=$(printf '%s\n' "${files[@]}" | wc -l)
 [ "$njobs" -gt "$count" ] && njobs="$count"
 [ "$njobs" -lt 1 ] && njobs=1
 
-# 第一遍：draftmode（不写 PDF），并行，容忍个别失败
+echo "[build] 第一遍：解析引用（$njobs 并发）"
 printf '%s\n' "${files[@]}" | xargs -P "$njobs" -I{} sh -c \
   'xelatex -draftmode -shell-escape -interaction=nonstopmode -halt-on-error "$1" >/dev/null 2>&1 || true' _ {}
 
-# 第二遍：正式输出 PDF，并行，严格（任一失败即退出）
+echo "[build] 第二遍：正式输出"
 printf '%s\n' "${files[@]}" | xargs -P "$njobs" -I{} \
-  xelatex -shell-escape -interaction=nonstopmode -halt-on-error {}
+  xelatex -shell-escape -interaction=nonstopmode -halt-on-error {} >/dev/null 2>&1 || true
 
-# 把生成的 PDF 复制到上级目录（output/<比赛名>/）
+# 对账：每个 tex 是否产出 PDF
+failed=0
+for f in "${files[@]}"; do
+  if [ ! -f "${f%.tex}.pdf" ]; then
+    echo "[build] 失败: $f"
+    tail -n 15 "${f%.tex}.log" 2>/dev/null | sed 's/^/    /' || true
+    failed=1
+  fi
+done
+[ "$failed" -eq 1 ] && exit 1
+
 cp *.pdf ..
-echo "完成：生成 $(ls *.pdf | wc -l) 个 PDF（已复制到上级目录）"
+echo "[build] 完成：$(ls *.pdf | wc -l) 个 PDF（已复制到上级目录）"

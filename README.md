@@ -129,14 +129,16 @@ cd output/2026-08-03-模拟赛/tex
 
 ## 打包下发
 
-输出目录下的 `package.sh` 一键完成：
-1. 重新编译（若存在 `tex/`，调用 `tex/build.sh`）
-2. 打包 `题面 PDF + data/ 样例数据` 为 `<比赛名>-下发.zip`
+`main.py` 运行完会自动预打包 `<比赛名>-下发.zip`（题面 PDF + `data/` 样例数据）。
+修改 `tex/` 源码后，用输出目录下的 `package.sh` 重新编译并打包：
 
 ```bash
 cd output/<比赛名>/
 ./package.sh
 ```
+
+`package.sh` 内部调用 `tex/build.sh`（并行编译，xelatex 日志静默，
+只显示进度与失败摘要）。
 
 ## 其他选项
 

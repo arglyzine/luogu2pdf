@@ -299,4 +299,5 @@ def test_build_build_script_parallel(tmp_path):
     script = build_build_script(tmp_path)
     assert "xargs -P" in script          # 并行
     assert "-draftmode" in script        # 第一遍不写 PDF
+    assert "[build]" in script           # 语义化输出
     assert "venv" in script
