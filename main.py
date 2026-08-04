@@ -3,7 +3,7 @@
 
 用法：
     python main.py                              # 使用 contest.json 配置，HTML 后端
-    python main.py --latex                      # 用 LaTeX 生成（xelatex + minted）
+    python main.py --backend latex              # 用 LaTeX 生成（xelatex + minted）
     python main.py --problems P1000 P1001       # 命令行直接指定题号
 
 输出：
@@ -158,22 +158,14 @@ def parse_args():
                     help="输出目录，默认 output/")
     ap.add_argument("--backend", choices=["html", "latex"], default="html",
                     help="渲染后端（默认 html；需要 xelatex + minted + pygments）")
-    ap.add_argument("--latex", action="store_true",
-                    help="等价 --backend latex（兼容旧用法）")
     ap.add_argument("--no-merge", action="store_true", help="不生成合集 PDF")
-    ap.add_argument("--keep-html", action="store_true",
-                    help="保留中间 HTML（仅 HTML 后端，输出到 <比赛名>/html/；"
-                         "LaTeX 后端的 tex 源码始终在 tex/）")
     ap.add_argument("--log-dir", type=Path, default=None,
                     help="日志文件目录（默认 .work/logs）")
     ap.add_argument("--no-stdout", action="store_true",
                     help="终端完全静默（日志只写文件，供脚本调用）")
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="显示完整日志（默认只显示进度条与关键信息）")
-    args = ap.parse_args()
-    if args.latex:
-        args.backend = "latex"
-    return args
+    return ap.parse_args()
 
 
 def load_config(path):
@@ -298,16 +290,12 @@ def split_segments_by_problems(pdf_path, datas):
 async def run_html(browser, datas, contest, out_dir, args):
     """HTML 后端：Chromium 打印 PDF（页眉用 headerTemplate，每页重复）。
 
-    --keep-html 时中间 HTML 保留到 output/<比赛名>/html/（默认只写入
-    .work 临时区，供 page.pdf 加载）。"""
+    中间 HTML 始终输出到 output/<比赛名>/html/（可从该目录检查/复用）。"""
     pdf_paths = []
     ctx = await browser.new_context(locale="zh-CN")
     try:
-        html_dir = out_dir / "html" if args.keep_html else None
-        if html_dir:
-            html_dir.mkdir(exist_ok=True)
-            console.print(f"[bold cyan]HTML[/bold cyan]: 中间文件保留至 "
-                          f"{_rel(html_dir)}", highlight=False)
+        html_dir = (out_dir / "html").resolve()  # page.goto 需要绝对路径
+        html_dir.mkdir(exist_ok=True)
 
         with Progress(*SPINNER_COLUMNS, console=console) as progress:
             tasks = {}
@@ -318,12 +306,9 @@ async def run_html(browser, datas, contest, out_dir, args):
             for data in datas:
                 pid = data.pid
                 html = build_problem_html(data, contest, data.index, len(datas))
-                html_path = WORK_DIR / f"problem_{pid}.html"
+                html_path = html_dir / f"第{data.index}题-" \
+                             f"{safe_filename(data.title)}.html"
                 html_path.write_text(html, encoding="utf-8")
-                if html_dir:
-                    (html_dir / f"第{data.index}题-"
-                     f"{safe_filename(data.title)}.html").write_text(
-                        html, encoding="utf-8")
                 page = await ctx.new_page()
                 try:
                     await page.goto(html_path.as_uri(), wait_until="networkidle",
@@ -356,11 +341,8 @@ async def run_html(browser, datas, contest, out_dir, args):
                     sections = "\n".join(build_problem_section(d, contest)
                                          for d in datas)
                     html = build_combined_html(contest, datas, cover_body, sections)
-                    html_path = WORK_DIR / "combined.html"
+                    html_path = html_dir / f"{comb_name}.html"
                     html_path.write_text(html, encoding="utf-8")
-                    if html_dir:
-                        (html_dir / f"{comb_name}.html").write_text(
-                            html, encoding="utf-8")
                     page = await ctx.new_page()
                     try:
                         await page.goto(html_path.as_uri(), wait_until="networkidle",
@@ -393,9 +375,6 @@ async def run_html(browser, datas, contest, out_dir, args):
 def run_latex(datas, contest, out_dir, args):
     """LaTeX 后端：输出可独立编译的 tex 源码（题面 body 分离 + 编译脚本），
     编译生成每题 + 合集 PDF。"""
-    if args.keep_html:
-        log.warning("--keep-html 仅影响 HTML 后端；"
-                    "LaTeX 中间产物（tex/）始终保留在输出目录")
     import shutil
     tex_out = out_dir / "tex"
     tex_out.mkdir(parents=True, exist_ok=True)

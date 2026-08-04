@@ -63,14 +63,14 @@ LaTeX 后端需要：
 运行：
 
 ```bash
-.venv/bin/python main.py            # HTML 后端
-.venv/bin/python main.py --latex    # LaTeX 后端
+.venv/bin/python main.py                    # HTML 后端（默认）
+.venv/bin/python main.py --backend latex  # LaTeX 后端
 ```
 
 也可全部用命令行（不用配置文件）：
 
 ```bash
-.venv/bin/python main.py --latex \
+.venv/bin/python main.py --backend latex \
   --contest "2026-08-03 模拟赛" --date 2026-08-03 \
   --time 9:00-13:00 --duration "4 小时" \
   --problems P17169,P17170,P17171,P17172
@@ -145,10 +145,10 @@ cd output/<比赛名>/
 
 | 参数 | 作用 |
 |------|------|
-| `--backend {html,latex}` | 渲染后端（默认 html）；`--latex` 为等价快捷写法 |
+| `--backend {html,latex}` | 渲染后端（默认 html） |
 | `--output-dir DIR` | 改输出目录（默认 `output/`） |
 | `--no-merge` | 不生成合集 PDF |
-| `--keep-html` | 保留中间 HTML 到 `<比赛名>/html/`（仅 HTML 后端；LaTeX 的 tex 源码始终在 `tex/`） |
+（HTML 后端中间 HTML 始终输出到 `<比赛名>/html/`；LaTeX 的 tex 源码始终在 `tex/`）
 | `--config FILE` | 指定其他配置文件 |
 
 终端输出使用 rich 彩色日志（级别着色、时间戳、失败回溯）。
