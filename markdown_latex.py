@@ -1,6 +1,5 @@
 """Markdown→LaTeX 转换器：洛谷题面 Markdown 源转 LaTeX 源码。"""
 
-import os
 import re
 import urllib.request
 from pathlib import Path
