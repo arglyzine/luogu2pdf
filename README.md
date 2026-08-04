@@ -29,7 +29,8 @@ LaTeX 后端需要：
 
 ## 组一场新模拟赛
 
-编辑 `contest.json`：
+复制 `contest.example.json` 为 `contest.json`（不入库，已 gitignore），
+然后编辑：
 
 ```json
 {

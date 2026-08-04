@@ -2,6 +2,7 @@
 .work/
 output/
 output-html/
+contest.json
 __pycache__/
 *.pyc
 *.log
