@@ -49,7 +49,18 @@ log.handlers = [RichHandler(console=console, show_path=False, rich_tracebacks=Tr
 
 
 def setup_logging(args):
-    """按 CLI 选项调整日志：文件输出（--log-dir）与终端开关（--no-stdout）。"""
+    """按 CLI 选项调整日志输出模式：
+
+    - 默认（正常模式）：终端只显示进度条与关键信息（WARNING 及以上），
+      进度条干净不被日志打断
+    - -v/--verbose：终端显示完整 INFO 日志
+    - --no-stdout：终端完全静默（供脚本/命令行调用）
+    - 日志文件始终记录完整 INFO（默认 .work/logs/）
+    """
+    level = logging.INFO if args.verbose else logging.WARNING
+    for h in log.handlers:
+        if isinstance(h, RichHandler):
+            h.setLevel(level)
     if args.no_stdout:
         log.handlers = [h for h in log.handlers
                         if not isinstance(h, RichHandler)]
@@ -60,6 +71,7 @@ def setup_logging(args):
         ts = datetime.now().strftime("%Y%m%d-%H%M%S")
         fh = logging.FileHandler(log_dir / f"luogu2pdf-{ts}.log",
                                  encoding="utf-8")
+        fh.setLevel(logging.INFO)  # 文件始终完整
         fh.setFormatter(logging.Formatter(
             "%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S"))
         log.addHandler(fh)
@@ -102,7 +114,9 @@ def parse_args():
     ap.add_argument("--log-dir", type=Path, default=None,
                     help="日志文件目录（默认 .work/logs）")
     ap.add_argument("--no-stdout", action="store_true",
-                    help="日志不输出到终端（只写文件）")
+                    help="终端完全静默（日志只写文件，供脚本调用）")
+    ap.add_argument("-v", "--verbose", action="store_true",
+                    help="显示完整日志（默认只显示进度条与关键信息）")
     return ap.parse_args()
 
 
@@ -336,17 +350,19 @@ def run_latex(datas, contest, out_dir, args):
     (tex_out / "build.sh").write_text(build_build_script(tex_out), encoding="utf-8")
     (tex_out / "build.sh").chmod(0o755)
 
-    # 4) 并行编译全部（文件间独立，draftmode 第一遍已处理引用），PDF 复制到 out_dir
+    # 4) 并行编译全部（文件间独立；进度分两遍：draftmode → 正式输出）
     from concurrent.futures import ThreadPoolExecutor
     pdf_paths = []
 
     def compile_one(tname, progress, tasks):
-        result = compile_latex(tex_out / tname, VENV_BIN)
-        progress.update(tasks[tname], completed=1)
+        tex_path = tex_out / tname
+        result = compile_latex(
+            tex_path, VENV_BIN,
+            progress_cb=lambda n: progress.update(tasks[tname], completed=n))
         return tname, result
 
     with Progress(console=console) as progress:
-        tasks = {t: progress.add_task(f"[cyan]{t}[/cyan]", total=1)
+        tasks = {t: progress.add_task(f"[cyan]{t}[/cyan]", total=2)
                  for t in tex_names}
         with ThreadPoolExecutor(max_workers=len(tex_names)) as ex:
             results = list(ex.map(lambda t: compile_one(t, progress, tasks),
@@ -455,10 +471,14 @@ async def run(args):
     out_dir = args.output_dir / safe_filename(contest.name)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    log.info("比赛: %s | %s | %s（%s）", contest.name, contest.date, contest.time, contest.duration)
-    log.info("题目: %s", ", ".join(p["pid"] for p in problems))
-    log.info("输出: %s", _rel(out_dir))
-    log.info("后端: %s", "LaTeX" if args.latex else "HTML")
+    # 关键信息：正常模式也显示（不走日志，避免被 -v 级别过滤）
+    console.print(f"[bold cyan]比赛[/bold cyan]: {contest.name} | "
+                  f"{contest.date} | {contest.time}（{contest.duration}）")
+    console.print(f"[bold cyan]题目[/bold cyan]: "
+                  f"{', '.join(p['pid'] for p in problems)}")
+    console.print(f"[bold cyan]后端[/bold cyan]: "
+                  f"{'LaTeX' if args.latex else 'HTML'}　"
+                  f"[dim]输出 {_rel(out_dir)}[/dim]")
 
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=True)
