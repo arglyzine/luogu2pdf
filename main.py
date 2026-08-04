@@ -52,7 +52,11 @@ class _StatusColumn(ProgressColumn):
         self._spinner = Spinner("dots", style="yellow")
 
     def render(self, task):
-        return self._spinner if not task.finished else Text("")
+        if task.finished:
+            ok = task.fields.get("ok", True)
+            return Text("✓" if ok else "✗",
+                        style="green" if ok else "red")
+        return self._spinner
 
 
 SPINNER_COLUMNS = [
@@ -99,11 +103,28 @@ def setup_logging(args):
         fh = logging.FileHandler(log_dir / f"luogu2pdf-{ts}.log",
                                  encoding="utf-8")
         fh.setLevel(logging.INFO)  # 文件始终完整
-        fh.setFormatter(logging.Formatter(
-            "%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S"))
+        fh.setFormatter(_ColorFileFormatter())
         log.addHandler(fh)
         console.print(f"[bold cyan]日志[/bold cyan]: "
-                      f"{_rel(log_dir / f'luogu2pdf-{ts}.log')}")
+                      f"{_rel(log_dir / f'luogu2pdf-{ts}.log')}",
+                      highlight=False)
+
+
+class _ColorFileFormatter(logging.Formatter):
+    """日志文件 Formatter：级别标签带 ANSI 颜色，消息原样（与终端一致）。"""
+    _COLORS = {
+        "DEBUG": "\x1b[38;5;244m",
+        "INFO": "\x1b[32m",
+        "WARNING": "\x1b[33m",
+        "ERROR": "\x1b[31m",
+        "CRITICAL": "\x1b[41m",
+    }
+    _RESET = "\x1b[0m"
+
+    def format(self, record):
+        color = self._COLORS.get(record.levelname, "")
+        ts = self.formatTime(record, "%H:%M:%S")
+        return f"{ts} {color}{record.levelname:<7}{self._RESET} {record.getMessage()}"
 
 
 def _rel(path):
@@ -386,9 +407,7 @@ def run_latex(datas, contest, out_dir, args):
     def compile_one(tname, progress, tasks):
         tex_path = tex_out / tname
         ok, pdf = compile_latex(tex_path, VENV_BIN)
-        mark = "[green]✓[/green]" if ok else "[red]✗[/red]"
-        progress.update(tasks[tname], total=1, completed=1,
-                        description=f"{mark} {tname}")
+        progress.update(tasks[tname], total=1, completed=1, ok=ok)
         return tname, (ok, pdf)
 
     with Progress(*SPINNER_COLUMNS, console=console) as progress:
@@ -503,12 +522,15 @@ async def run(args):
 
     # 关键信息：正常模式也显示（不走日志，避免被 -v 级别过滤）
     console.print(f"[bold cyan]比赛[/bold cyan]: {contest.name} | "
-                  f"{contest.date} | {contest.time}（{contest.duration}）")
+                  f"{contest.date} | {contest.time}（{contest.duration}）",
+                  highlight=False)
     console.print(f"[bold cyan]题目[/bold cyan]: "
-                  f"{', '.join(p['pid'] for p in problems)}")
+                  f"{', '.join(p['pid'] for p in problems)}",
+                  highlight=False)
     console.print(f"[bold cyan]后端[/bold cyan]: "
                   f"{'LaTeX' if args.latex else 'HTML'}　"
-                  f"[dim]输出 {_rel(out_dir)}[/dim]")
+                  f"[dim]输出 {_rel(out_dir)}[/dim]",
+                  highlight=False)
 
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=True)
