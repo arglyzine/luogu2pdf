@@ -52,18 +52,7 @@
 \RequirePackage{lineno}
 \RequirePackage{fancyvrb}
 \renewcommand{\theFancyVerbLine}{\ttfamily\textcolor{gray}{\footnotesize\arabic{FancyVerbLine}}}
-\tcbuselibrary{most}
-
-\usepackage{etoolbox}
-\BeforeBeginEnvironment{minted}{
-    \begin{tcolorbox}[
-        colframe=blue,
-        breakable=true,
-        colback = white,
-        boxrule = 0.5pt,
-        left=2mm,
-        ]}
-\AfterEndEnvironment{minted}{\end{tcolorbox}}
+\tcbuselibrary{most, minted}
 
 % 引用/说明块（admonition 样式：左侧粗线 + 浅灰底 + 直角，
 % 参考 tex.stackexchange.com/q/687578）
@@ -71,19 +60,14 @@
   boxrule=0mm, leftrule=2mm, boxsep=0mm, arc=0mm, outer arc=0mm,
   colback=gray!8, colframe=black, #1}
 
-\newenvironment{example}
-{
-    \ttfamily
-    \begin{tcolorbox}[
-        colframe=blue,
-        breakable=true,
-        left=0.3125in,
-        colback = white,
-        boxrule = 0.5pt,
-        left=5mm,
-        ]\begingroup\linenumbers}
-{
-    \endgroup\end{tcolorbox}
+% 样例框：tcolorbox minted 集成（listing engine=minted + breakable，
+% 样例内容可跨页——\BeforeBeginEnvironment{minted} 包裹 verbatim 无法分页）
+\newtcblisting{example}{
+  listing engine=minted,
+  minted language=text,
+  minted options={linenos},
+  colframe=blue, breakable=true, colback=white,
+  boxrule=0.5pt, left=2mm,
 }
 
 
