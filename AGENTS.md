@@ -93,3 +93,41 @@ utils.py             共享格式化工具（日期/时限/内存/文件名）
   `.venv/bin`；`TEXINPUTS` 指向 `assets/latex/`（statement.cls）。
 - **字体**：LaTeX 封面用 ctex `fontset=windows`（SimSun/SimHei/KaiTi/
   FangSong/微软雅黑需装入 `~/.local/share/fonts` 并 `initexmf --update-fndb`）。
+
+## PDF 渲染验证技巧（像素级确认）
+
+文本层提取（`get_text`）不可靠：着重号点会插入字符间、KaTeX/公式 span 拆分、
+行序乱——验证边框/线/位置/合并等视觉元素时，用**渲染 + 像素分析**，
+不要依赖肉眼或 AI 看图（本模型不支持图片输入）：
+
+```python
+import fitz
+from PIL import Image
+import numpy as np
+
+page = fitz.open("xxx.pdf")[n]
+# 高 DPI 渲染目标区域（clip 用 pt 坐标），300dpi 下 1px ≈ 0.24pt
+page.get_pixmap(dpi=300, clip=fitz.Rect(x0, y0, x1, y1)).save("t.png")
+img = np.array(Image.open("t.png").convert("RGB"))
+
+# 1) 找指定颜色的竖线（如样例框蓝 #2E74B5）：
+#    像素 x → 页面 pt：pt = x * 72 / dpi + clip.x0
+blue = (abs(img[:, :, 0].astype(int) - 0x2E) < 40) \
+     & (abs(img[:, :, 1].astype(int) - 0x74) < 40) \
+     & (abs(img[:, :, 2].astype(int) - 0xB5) < 40)
+cols = [x for x in range(img.shape[1]) if blue.sum(axis=0)[x] > img.shape[0] * 0.3]
+
+# 2) 找横线：按行统计暗像素（y 同理换算 pt）
+dark_rows = (np.array(Image.open("t.png").convert("L")) < 160).sum(axis=1)
+
+# 3) 验证居中：元素左/右边缘的 pt 坐标，中心应 ≈ 页面中心（A4 = 297.5pt）
+# 4) 验证合并单元格/边框缺失：比对左右边缘像素列是否存在
+```
+
+常用判定：
+- 边框四边：分别检测左/右列、顶/底行的连续暗/彩色像素
+- 表格线存在性：横线（`dark_rows` 的宽行带）与竖线（列带）的数量和位置
+- 元素是否贴边被裁：`search_for("文字")` 得到 x 坐标后换算，与预期版心边界比较
+
+- **注意**：0.4-0.7pt 细线在 150dpi 下灰度浅、阈值易漏报——用 300dpi +
+  宽松阈值（<160~<200）或按颜色精确匹配。
