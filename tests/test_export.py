@@ -48,3 +48,17 @@ def test_export_samples_missing_output(tmp_path):
     export_samples([d], tmp_path)
     assert (tmp_path / "data" / "t1" / "1.in").exists()
     assert not (tmp_path / "data" / "t1" / "1.out").exists()
+
+
+def test_write_contest_snapshot(tmp_path):
+    from main import write_contest_snapshot
+    import json
+    from model import Contest
+    contest = Contest(name="测试赛", date="2026-08-05",
+                      time="8:30-12:30", duration="4 小时")
+    problems = [{"pid": "P1000", "english": "a"}, {"pid": "P1001"}]
+    write_contest_snapshot(tmp_path, contest, problems)
+    data = json.loads((tmp_path / "contest.json").read_text())
+    assert data["contest"] == "测试赛"
+    assert data["date"] == "2026-08-05"
+    assert data["problems"] == problems

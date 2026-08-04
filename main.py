@@ -511,6 +511,22 @@ echo "[package] 完成"
     log.info("打包脚本已生成: %s", _rel(out_dir / "package.sh"))
 
 
+def write_contest_snapshot(out_dir, contest, problems):
+    """输出最终配置快照（含 CLI 覆盖结果），供归档/重新生成/排查。"""
+    data = {
+        "contest": contest.name,
+        "date": contest.date,
+        "time": contest.time,
+        "duration": contest.duration,
+        "notes": contest.notes,
+        "problems": problems,
+    }
+    path = out_dir / "contest.json"
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                    encoding="utf-8")
+    log.info("配置快照已输出: %s", _rel(path))
+
+
 async def run(args):
     setup_logging(args)
     cfg = load_config(args.config)
@@ -519,6 +535,7 @@ async def run(args):
     WORK_DIR.mkdir(exist_ok=True)
     out_dir = args.output_dir / safe_filename(contest.name)
     out_dir.mkdir(parents=True, exist_ok=True)
+    write_contest_snapshot(out_dir, contest, problems)
 
     # 关键信息：正常模式也显示（不走日志，避免被 -v 级别过滤）
     console.print(f"[bold cyan]比赛[/bold cyan]: {contest.name} | "
