@@ -34,10 +34,15 @@ from compile import compile_latex
 from latex_doc import (build_statement_tex, build_problem_doc,
                        build_combined_doc, build_build_script)
 
+from rich.console import Console
+from rich.logging import RichHandler
+
+console = Console()
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)-7s %(message)s",
-    datefmt="%H:%M:%S",
+    format="%(message)s",
+    handlers=[RichHandler(show_path=False, rich_tracebacks=True)],
 )
 log = logging.getLogger("luogu2pdf")
 
@@ -435,8 +440,14 @@ async def run(args):
     if not pdf_paths:
         sys.exit("\n错误：所有 PDF 生成失败")
     write_package_script(out_dir, contest)
+    zip_path = None
     if not args.no_merge:
-        create_distribution_zip(out_dir, contest)
+        zip_path = create_distribution_zip(out_dir, contest)
+    console.rule("[bold green]完成[/bold green]")
+    for p in sorted(pdf_paths):
+        console.print(f"  [cyan]{p.name}[/cyan]  [dim]({p.stat().st_size / 1024:.0f} KB)[/dim]")
+    if zip_path:
+        console.print(f"  [cyan]{zip_path.name}[/cyan]  [dim]({zip_path.stat().st_size / 1e6:.1f} MB)[/dim]")
     log.info("全部完成。")
 
 
