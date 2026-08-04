@@ -290,3 +290,13 @@ def test_split_hint_formula_title():
     hint = "#### 样例 $1$ 解释\n解释内容"
     parts = _split_hint(hint)
     assert parts[0][0] == "样例 $1$ 解释"
+
+
+# ---------------- 编译脚本 ----------------
+
+def test_build_build_script_parallel(tmp_path):
+    from latex_doc import build_build_script
+    script = build_build_script(tmp_path)
+    assert "xargs -P" in script          # 并行
+    assert "-draftmode" in script        # 第一遍不写 PDF
+    assert "venv" in script

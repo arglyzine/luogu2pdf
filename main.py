@@ -298,19 +298,25 @@ def run_latex(datas, contest, out_dir, args):
     (tex_out / "build.sh").write_text(build_build_script(tex_out), encoding="utf-8")
     (tex_out / "build.sh").chmod(0o755)
 
-    # 4) 编译全部（两遍处理 TotPages 引用），PDF 复制到 out_dir
+    # 4) 并行编译全部（文件间独立，draftmode 第一遍已处理引用），PDF 复制到 out_dir
+    from concurrent.futures import ThreadPoolExecutor
     pdf_paths = []
-    for tname in tex_names:
+
+    def compile_one(tname):
         tex_path = tex_out / tname
         log.info("编译 LaTeX: %s ...", tname)
-        ok, pdf = compile_latex(tex_path, VENV_BIN)
+        return tname, compile_latex(tex_path, VENV_BIN)
+
+    with ThreadPoolExecutor(max_workers=len(tex_names)) as ex:
+        results = list(ex.map(compile_one, tex_names))
+    for tname, (ok, pdf) in results:
         if ok:
             dest = out_dir / pdf.name
             shutil.copy(pdf, dest)
             pdf_paths.append(dest)
             log.info("  完成: %s", dest.name)
         else:
-            log.error("  失败: %s", pdf)
+            log.error("  失败(%s): %s", tname, pdf)
     return pdf_paths
 
 
