@@ -82,9 +82,9 @@ def build_statement_tex(problem, contest, index, total, images):
 def _sample_block(text):
     """样例 → minted 样例框（行号 + 蓝框）。
 
-    内容规范化为每行以换行结尾（verbatim 对无尾随换行的最后一行
-    会重复渲染）。"""
-    escaped = text.rstrip("\n") + "\n"
+    去掉尾部换行：verbatim 对尾随 \\n 会多渲染一个空行（行号
+    出现空行）；minted 3.8 对无尾随换行的最后一行不重复。"""
+    escaped = text.rstrip("\n")
     escaped = escaped.replace("\\", r"\textbackslash{}")
     return _env.get_template("sample.tex.j2").render(content=escaped)
 
