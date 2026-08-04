@@ -314,6 +314,27 @@ def run_latex(datas, contest, out_dir, args):
     return pdf_paths
 
 
+def export_samples(datas, out_dir):
+    """把样例输入输出导出为 data/<可执行文件名>/{n}.in / {n}.out。"""
+    data_dir = out_dir / "data"
+    count = 0
+    for d in datas:
+        samples = d.md_samples
+        if not samples:
+            continue
+        pdir = data_dir / d.exec_name
+        pdir.mkdir(parents=True, exist_ok=True)
+        for n, pair in enumerate(samples, 1):
+            inp, outp = pair[0], pair[1] if len(pair) > 1 else ""
+            (pdir / f"{n}.in").write_text(inp, encoding="utf-8")
+            if outp:
+                (pdir / f"{n}.out").write_text(outp, encoding="utf-8")
+            count += 1
+    if count:
+        log.info("样例数据已导出: %s（%d 组）", data_dir, count)
+    return count
+
+
 async def run(args):
     cfg = load_config(args.config)
     contest, problems = merge_config(args, cfg)
@@ -331,6 +352,7 @@ async def run(args):
         browser = await pw.chromium.launch(headless=True)
         try:
             datas = await fetch_all(browser, problems, WORK_DIR)
+            export_samples(datas, out_dir)
             if args.latex:
                 for d in datas:
                     if not d.content:
