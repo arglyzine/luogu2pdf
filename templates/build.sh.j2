@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # 一键重新编译全部题面（并行）：每道题 + 合集
-# 两遍正式输出（写 aux 与解析引用，标准收敛；不要用 -draftmode 第一遍，
-# 否则需第三遍且总时间更长）
+# 两遍：第一遍 -no-pdf（写 aux 不产 PDF，省时），第二遍正式输出收敛引用
 # xelatex 日志静默，只显示进度与失败摘要
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -15,9 +14,9 @@ count=$(printf '%s\n' "${files[@]}" | wc -l)
 [ "$njobs" -gt "$count" ] && njobs="$count"
 [ "$njobs" -lt 1 ] && njobs=1
 
-echo "[build] 第一遍（$njobs 并发）"
+echo "[build] 第一遍（$njobs 并发，-no-pdf）"
 printf '%s\n' "${files[@]}" | xargs -P "$njobs" -I{} \
-  xelatex -shell-escape -interaction=nonstopmode -halt-on-error {} >/dev/null 2>&1 || true
+  xelatex -no-pdf -shell-escape -interaction=nonstopmode -halt-on-error {} >/dev/null 2>&1 || true
 
 echo "[build] 第二遍：收敛引用（TotPages）"
 printf '%s\n' "${files[@]}" | xargs -P "$njobs" -I{} \

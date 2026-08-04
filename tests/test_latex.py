@@ -298,6 +298,6 @@ def test_build_build_script_parallel(tmp_path):
     from latex_doc import build_build_script
     script = build_build_script(tmp_path)
     assert "xargs -P" in script          # 并行
-    assert "-draftmode" in script        # 第一遍不写 PDF
+    assert "-no-pdf" in script           # 第一遍不写 PDF（写 aux）
     assert "[build]" in script           # 语义化输出
     assert "venv" in script
