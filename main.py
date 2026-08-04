@@ -296,6 +296,10 @@ async def run_html(browser, datas, contest, out_dir, args):
     try:
         html_dir = (out_dir / "html").resolve()  # page.goto 需要绝对路径
         html_dir.mkdir(exist_ok=True)
+        # KaTeX 字体复制到 html/fonts/（CSS 相对引用，HTML 目录自包含）
+        import shutil
+        from template import KATEX_FONTS
+        shutil.copytree(KATEX_FONTS, html_dir / "fonts", dirs_exist_ok=True)
 
         with Progress(*SPINNER_COLUMNS, console=console) as progress:
             tasks = {}

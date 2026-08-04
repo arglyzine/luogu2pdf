@@ -30,11 +30,11 @@ KATEX_ESCAPE = None
 
 
 def _katex_css():
-    """读取本地 KaTeX 样式，字体路径转 file:// 绝对路径。"""
+    """读取本地 KaTeX 样式；字体用相对 fonts/ 路径（HTML 自包含，
+    需把 assets/katex/fonts 复制到 html 目录旁的 fonts/）。"""
     global KATEX_ESCAPE
     css = KATEX_CSS.read_text(encoding="utf-8")
-    fonts_uri = KATEX_FONTS.resolve().as_uri()
-    return css.replace("url(fonts/", f"url({fonts_uri}/")
+    return css.replace("url(fonts/", "url(fonts/")
 
 
 def _base_style(with_header=True):

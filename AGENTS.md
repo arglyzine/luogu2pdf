@@ -78,6 +78,8 @@ utils.py             共享格式化工具（日期/时限/内存/文件名）
   DroidSansFallback（TrueType），且它是纯中文字体——数字/英文需
   Helvetica 混合绘制（`overlay._draw_mixed`）。
 - **Chromium 打印丢弃 <1px border**：HTML 表格细线用 `1px`（不要用 0.7pt）。
+- **贴版心右缘的边框打印时被舍入丢弃**（样例框右线曾丢失）：右侧需内缩
+  （`margin-right: 1px`）。
 - **Chromium 打印的 `text-emphasis` 会把点渲染成占位字符**：强调文字用
   `text-emphasis` 正常（字旁点），不要改成逐字 span 方案。
 - **Jinja2 注释是 `{# ... #}`**，不是 Django 的 `{% comment %}`；LaTeX

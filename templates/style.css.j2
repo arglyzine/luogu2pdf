@@ -55,7 +55,8 @@ h2.sec {
 }
 /* ---- 样例框（蓝色细边框，参考 tcolorbox colframe=blue, boxrule=0.5pt） ---- */
 pre.sample {
-  border: 0.5pt solid #2E74B5; padding: 2mm 3.5mm; margin: 1.5mm 0 4mm;
+  border: 1px solid #2E74B5; padding: 2mm 3.5mm; margin: 1.5mm 0 4mm 0;
+  margin-right: 1px; /* 右缘内缩，避免打印时贴边边框被舍入丢弃 */
   white-space: pre-wrap; word-break: break-all;
   font-family: 'DejaVu Sans Mono', 'Noto Sans Mono CJK SC', monospace;
   font-size: 10.5pt; line-height: 1.6;
