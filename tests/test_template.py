@@ -1,6 +1,7 @@
 """template.py（HTML 后端）与共享工具函数测试。"""
 
-from template import hint_title, _split_hint_html, _numbered_sample
+from rules import classify_hint
+from template import _split_hint_html, _numbered_sample
 from utils import fmt_date, fmt_time_limit, fmt_memory, safe_filename
 
 
@@ -29,11 +30,11 @@ def test_safe_filename():
 
 def test_hint_title_datarange():
     content = "<p>对于 100% 的数据满足：</p>"
-    assert hint_title(content) == "数据范围"
+    assert classify_hint(content) == "数据范围"
 
 
 def test_hint_title_plain():
-    assert hint_title("<p>注意常数因子</p>") == "提示"
+    assert classify_hint("<p>注意常数因子</p>") == "提示"
 
 
 def test_split_hint_html():

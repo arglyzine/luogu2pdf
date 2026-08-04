@@ -45,6 +45,7 @@ main.py              CLI 编排：配置校验、抓取、双后端分发、HTML
 model.py             Problem/Contest dataclass（两个后端共享的数据模型）
 luogu.py             抓取（Playwright；提取脚本在 assets/extract.js）
 template.py          HTML 后端渲染（templates/*.html.j2 + style.css.j2）
+rules.py             双后端共享语义规则（hint 拆分/样例解释/数据范围/^ 标记）
 markdown_latex.py    Markdown→LaTeX 转换器（纯函数，测试覆盖最全）
 latex_doc.py         LaTeX 文档组装（templates/*.tex.j2）
 compile.py           xelatex 两遍编译

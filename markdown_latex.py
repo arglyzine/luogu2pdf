@@ -4,6 +4,7 @@ import re
 import urllib.request
 from pathlib import Path
 
+from rules import CARET
 from jinja2 import Environment, FileSystemLoader
 
 ROOT = Path(__file__).resolve().parent
@@ -302,10 +303,10 @@ def _table_to_latex(rows):
         row += [""] * (ncols - len(row))
 
     # 1) 记录 ^ 位置，再展开（与上方最近非 ^ 值相同）
-    caret = [[cells[r][c] == "^" for c in range(ncols)] for r in range(nrows)]
+    caret = [[cells[r][c] == CARET for c in range(ncols)] for r in range(nrows)]
     for r in range(1, nrows):
         for c in range(ncols):
-            if cells[r][c] == "^":
+            if cells[r][c] == CARET:
                 for rr in range(r - 1, -1, -1):
                     if cells[rr][c] != "^":
                         cells[r][c] = cells[rr][c]

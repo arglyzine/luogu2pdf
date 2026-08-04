@@ -14,6 +14,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
+from rules import classify_hint, sample_explain_number
 from utils import fmt_date, fmt_time_range, fmt_memory, dashfix
 
 ROOT = Path(__file__).resolve().parent
@@ -62,18 +63,6 @@ SECTION_MAP = [
     ("说明/提示", None),  # 动态标题，见 hint_title()
 ]
 
-HINT_KEYWORDS = re.compile(r"数据范围|对于\s*100\s*%\s*的数据|测试点")
-
-
-def hint_title(content):
-    """根据内容判断节标题：含数据范围关键词时用【数据范围】，否则【提示】。"""
-    # 去掉 HTML 标签再检测关键词（KaTeX span 会打断正则）
-    text = re.sub(r"<[^>]+>", " ", content)
-    if HINT_KEYWORDS.search(text):
-        return "数据范围"
-    return "提示"
-
-
 def _split_hint_html(hint_html):
     """把说明/提示的 HTML 按 <h3> 小标题拆分成 [(标题, 内容HTML), ...]。"""
     parts = re.split(r"(<h[34][^>]*>.*?</h[34]>)", hint_html, flags=re.S)
@@ -106,7 +95,7 @@ def _sections_html(problem):
         if not content or name == "说明/提示":
             continue
         if title is None:
-            title = hint_title(content)
+            title = classify_hint(content)
         prefix = {"输入格式": "从标准输入中读入数据。",
                   "输出格式": "输出到标准输出中。"}.get(name)
         # prefix 段需在 .lfe-marked 内（正文缩进选择器）才能首行缩进
@@ -135,14 +124,14 @@ def _sections_html(problem):
         for htitle, hbody in _split_hint_html(hint_html):
             if not hbody.strip():
                 continue
-            m = re.search(r"样例\s*\$?\s*(\d+)\s*\$?\s*解释", htitle)
+            n = sample_explain_number(htitle)
             # hint 拆分出的片段无 .lfe-marked 包装，补一层以应用正文缩进等样式
             hbody = f'<div class="lfe-marked">{hbody}</div>'
             if "解释" in htitle and "样例" in htitle:
-                n = m.group(1) if m else (1 if samples else 1)
+                n = n or (1 if samples else 1)
                 parts.append({"title": f"样例 {n} 解释", "content": hbody, "cls": "marked"})
             else:
-                t = htitle or hint_title(hbody)
+                t = htitle or classify_hint(hbody)
                 parts.append({
                     "title": t,
                     "content": hbody,

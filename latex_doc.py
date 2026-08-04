@@ -1,5 +1,6 @@
 """LaTeX 文档组装：题面/封面/合集/单题文档与 build.sh。"""
 
+from rules import HINT_HEADING_RE, DATARANGE_RE, classify_hint, sample_explain_number
 from markdown_latex import md_to_latex, _escape_special
 from utils import fmt_time_range, dashfix
 
@@ -9,6 +10,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
+from rules import HINT_HEADING_RE, DATARANGE_RE, classify_hint, sample_explain_number
 from markdown_latex import md_to_latex, _escape_special
 from utils import fmt_time_range, dashfix
 
@@ -19,7 +21,7 @@ _env = Environment(loader=FileSystemLoader(ROOT / "templates"), autoescape=False
 
 def _split_hint(hint):
     """按 ### 小标题分段 hint，返回 [(标题, 内容), ...]；### 之前的内容标题为空。"""
-    parts = re.split(r"^\s*#{1,4}\s+(.+?)\s*$", hint, flags=re.M)
+    parts = re.split(HINT_HEADING_RE.pattern, hint, flags=re.M)
     out = []
     if parts[0].strip():
         out.append(("", parts[0]))
@@ -61,14 +63,13 @@ def build_statement_tex(problem, contest, index, total, images):
         for htitle, hbody in _split_hint(content["hint"]):
             if not hbody.strip():
                 continue
-            m = re.search(r"样例\s*\$?\s*(\d+)\s*\$?\s*解释", htitle)
+            n = sample_explain_number(htitle)
             if "解释" in htitle and "样例" in htitle:
-                n = m.group(1) if m else (1 if samples else 1)
+                n = n or (1 if samples else 1)
                 parts.append({"title": f"样例 {n} 解释",
                               "body": md_to_latex(hbody, images) + "\n"})
             else:
-                title = htitle or ("数据范围" if re.search(
-                    r"数据范围|测试点|对于\s*100\s*%", hbody) else "提示")
+                title = htitle or classify_hint(hbody)
                 sec(title, md_to_latex(hbody, images))
 
     return _env.get_template("statement.tex.j2").render(
