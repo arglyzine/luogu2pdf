@@ -16,8 +16,10 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -36,15 +38,38 @@ from latex_doc import (build_statement_tex, build_problem_doc,
 
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.progress import Progress
 
 console = Console()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    handlers=[RichHandler(show_path=False, rich_tracebacks=True)],
-)
 log = logging.getLogger("luogu2pdf")
+log.setLevel(logging.INFO)
+log.propagate = False
+log.handlers = [RichHandler(show_path=False, rich_tracebacks=True)]
+
+
+def setup_logging(args):
+    """按 CLI 选项调整日志：文件输出（--log-dir）与终端开关（--no-stdout）。"""
+    if args.no_stdout:
+        log.handlers = [h for h in log.handlers
+                        if not isinstance(h, RichHandler)]
+        console.quiet = True  # 进度条/摘要也静默
+    log_dir = Path(args.log_dir) if args.log_dir else WORK_DIR / "logs"
+    if log_dir:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+        fh = logging.FileHandler(log_dir / f"luogu2pdf-{ts}.log",
+                                 encoding="utf-8")
+        fh.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S"))
+        log.addHandler(fh)
+        log.info("日志文件: %s", _rel(log_dir / f"luogu2pdf-{ts}.log"))
+
+
+def _rel(path):
+    """日志中显示相对项目根的路径（避免长路径折行）；ROOT 外显示绝对路径。"""
+    return os.path.relpath(path, ROOT) if Path(path).is_relative_to(ROOT) else str(path)
+
 
 DEFAULT_CONFIG = ROOT / "contest.json"
 WORK_DIR = ROOT / ".work"
@@ -74,6 +99,10 @@ def parse_args():
                     help="用 LaTeX 生成（需要 xelatex + minted + pygments）")
     ap.add_argument("--no-merge", action="store_true", help="不生成合集 PDF")
     ap.add_argument("--keep-html", action="store_true", help="保留中间 HTML/TeX")
+    ap.add_argument("--log-dir", type=Path, default=None,
+                    help="日志文件目录（默认 .work/logs）")
+    ap.add_argument("--no-stdout", action="store_true",
+                    help="日志不输出到终端（只写文件）")
     return ap.parse_args()
 
 
@@ -116,21 +145,25 @@ def merge_config(args, cfg):
 
 
 async def fetch_all(browser, problems, work_dir):
-    """抓取所有题目，返回数据列表。"""
+    """抓取所有题目（rich 进度条），返回数据列表。"""
     datas = []
-    for i, prob in enumerate(problems, 1):
-        pid = prob["pid"]
-        log.info("[%d/%d] 抓取 %s ...", i, len(problems), pid)
-        try:
-            data = await fetch_problem(browser, pid, work_dir)
-            data.index = i
-            data.english = prob.get("english", "")
-            data.type = prob.get("type", "传统型")
-            datas.append(data)
-            log.info("  完成: %s | %s / %s | %d 组样例",
-              data.title, data.time_limit, data.memory_limit, len(data.samples))
-        except Exception as e:
-            log.error("  失败: %s", e)
+    with Progress(console=console) as progress:
+        task = progress.add_task("[cyan]抓取题目[/cyan]", total=len(problems))
+        for i, prob in enumerate(problems, 1):
+            pid = prob["pid"]
+            progress.update(task, description=f"[cyan]抓取 {pid}[/cyan]")
+            try:
+                data = await fetch_problem(browser, pid, work_dir)
+                data.index = i
+                data.english = prob.get("english", "")
+                data.type = prob.get("type", "传统型")
+                datas.append(data)
+                log.info("  完成: %s | %s / %s | %d 组样例",
+                         data.title, data.time_limit, data.memory_limit,
+                         len(data.samples))
+            except Exception as e:
+                log.error("  失败(%s): %s", pid, e)
+            progress.advance(task)
     if not datas:
         sys.exit("\n错误：所有题目都抓取失败")
     return datas
@@ -307,13 +340,17 @@ def run_latex(datas, contest, out_dir, args):
     from concurrent.futures import ThreadPoolExecutor
     pdf_paths = []
 
-    def compile_one(tname):
-        tex_path = tex_out / tname
-        log.info("编译 LaTeX: %s ...", tname)
-        return tname, compile_latex(tex_path, VENV_BIN)
+    def compile_one(tname, progress, tasks):
+        result = compile_latex(tex_out / tname, VENV_BIN)
+        progress.update(tasks[tname], completed=1)
+        return tname, result
 
-    with ThreadPoolExecutor(max_workers=len(tex_names)) as ex:
-        results = list(ex.map(compile_one, tex_names))
+    with Progress(console=console) as progress:
+        tasks = {t: progress.add_task(f"[cyan]{t}[/cyan]", total=1)
+                 for t in tex_names}
+        with ThreadPoolExecutor(max_workers=len(tex_names)) as ex:
+            results = list(ex.map(lambda t: compile_one(t, progress, tasks),
+                                  tex_names))
     for tname, (ok, pdf) in results:
         if ok:
             dest = out_dir / pdf.name
@@ -351,7 +388,7 @@ def export_samples(datas, out_dir):
                 write(pdir / f"{n}.out", outp)
             count += 1
     if count:
-        log.info("样例数据已导出: %s（%d 组）", data_dir, count)
+        log.info("样例数据已导出: %s（%d 组）", _rel(data_dir), count)
     return count
 
 
@@ -375,7 +412,7 @@ def create_distribution_zip(out_dir, contest):
                     z.write(f, f.relative_to(out_dir))
                     n += 1
     log.info("下发包已生成: %s（%d 个文件，%.1f MB）",
-             zip_path, n, zip_path.stat().st_size / 1e6)
+             _rel(zip_path), n, zip_path.stat().st_size / 1e6)
     return zip_path
 
 
@@ -406,10 +443,11 @@ echo "[package] 完成"
 """
     (out_dir / "package.sh").write_text(script, encoding="utf-8")
     (out_dir / "package.sh").chmod(0o755)
-    log.info("打包脚本已生成: %s", out_dir / "package.sh")
+    log.info("打包脚本已生成: %s", _rel(out_dir / "package.sh"))
 
 
 async def run(args):
+    setup_logging(args)
     cfg = load_config(args.config)
     contest, problems = merge_config(args, cfg)
 
@@ -419,7 +457,7 @@ async def run(args):
 
     log.info("比赛: %s | %s | %s（%s）", contest.name, contest.date, contest.time, contest.duration)
     log.info("题目: %s", ", ".join(p["pid"] for p in problems))
-    log.info("输出: %s", out_dir)
+    log.info("输出: %s", _rel(out_dir))
     log.info("后端: %s", "LaTeX" if args.latex else "HTML")
 
     async with async_playwright() as pw:
