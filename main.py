@@ -45,7 +45,7 @@ console = Console()
 log = logging.getLogger("luogu2pdf")
 log.setLevel(logging.INFO)
 log.propagate = False
-log.handlers = [RichHandler(show_path=False, rich_tracebacks=True)]
+log.handlers = [RichHandler(console=console, show_path=False, rich_tracebacks=True)]
 
 
 def setup_logging(args):
