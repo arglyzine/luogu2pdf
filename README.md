@@ -84,6 +84,7 @@ output/2026-08-03-模拟赛/
   data/                             ← 样例数据（每组比赛都生成）
     t1/1.in 1.out 2.in 2.out        每个可执行文件名一个目录
     t2/...                          样例按 {n}.in / {n}.out 命名
+  package.sh                        一键重新编译 + 打包下发 zip
   tex/                              ← LaTeX 源码（--latex 时生成）
     build.sh                        一键重新编译全部（题数 + 1 个 PDF）
     第1题-过去.tex ...               单题文档（\input 引用题面 body）
@@ -125,6 +126,17 @@ cd output/2026-08-03-模拟赛/tex
 
 修改后运行 `./build.sh` 重新生成全部 PDF。
 （此方法已注释在 `templates/tblr.tex.j2` 模板头部）
+
+## 打包下发
+
+输出目录下的 `package.sh` 一键完成：
+1. 重新编译（若存在 `tex/`，调用 `tex/build.sh`）
+2. 打包 `题面 PDF + data/ 样例数据` 为 `<比赛名>-下发.zip`
+
+```bash
+cd output/<比赛名>/
+./package.sh
+```
 
 ## 其他选项
 

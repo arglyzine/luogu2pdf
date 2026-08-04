@@ -344,6 +344,47 @@ def export_samples(datas, out_dir):
     return count
 
 
+def write_package_script(out_dir, contest):
+    """在输出目录生成 package.sh：重新编译（若有 tex/）+ 打包下发 zip。
+
+    zip 内容：每题 PDF + 合集 PDF + data/ 样例数据，名为 <比赛名>-下发.zip。
+    """
+    import os
+    venv = os.path.relpath(VENV_BIN, out_dir).replace("\\", "/")
+    name = safe_filename(contest.name)
+    script = f"""#!/usr/bin/env bash
+# 重新编译（若 tex/ 存在）并打包下发 zip：题面 PDF + data/
+set -euo pipefail
+cd "$(dirname "$0")"
+
+if [ -d tex ] && [ -x tex/build.sh ]; then
+  (cd tex && ./build.sh)
+fi
+
+export PATH="$(pwd)/{venv}:$PATH"
+"$(pwd)/{venv}/python" - <<'PYEOF'
+import pathlib, zipfile
+
+root = pathlib.Path(".")
+name = "{name}-下发"
+files = sorted(root.glob("第*.pdf")) + [root / "{name}-题面合集.pdf"]
+with zipfile.ZipFile(root / (name + ".zip"), "w", zipfile.ZIP_DEFLATED) as z:
+    for f in files:
+        if f.exists():
+            z.write(f, f.name)
+    data = root / "data"
+    if data.exists():
+        for f in sorted(data.rglob("*")):
+            if f.is_file():
+                z.write(f, f.relative_to(root))
+print("打包完成: " + str(root / (name + ".zip")))
+PYEOF
+"""
+    (out_dir / "package.sh").write_text(script, encoding="utf-8")
+    (out_dir / "package.sh").chmod(0o755)
+    log.info("打包脚本已生成: %s", out_dir / "package.sh")
+
+
 async def run(args):
     cfg = load_config(args.config)
     contest, problems = merge_config(args, cfg)
@@ -374,6 +415,7 @@ async def run(args):
 
     if not pdf_paths:
         sys.exit("\n错误：所有 PDF 生成失败")
+    write_package_script(out_dir, contest)
     log.info("全部完成。")
 
 
