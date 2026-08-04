@@ -38,14 +38,25 @@ from latex_doc import (build_statement_tex, build_problem_doc,
 
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.progress import (BarColumn, Progress, TaskProgressColumn,
-                       TextColumn)
+from rich.progress import Progress, ProgressColumn, TextColumn
+from rich.spinner import Spinner
+from rich.text import Text
 
-# 进度条只显示 描述 + 进度条 + 百分比（两阶段无剩余时间可估算）
-PROGRESS_COLUMNS = [
+
+class _StatusColumn(ProgressColumn):
+    """进行中显示 spinner 转圈，完成后显示空白（结果符号由 description 给出）。"""
+
+    def __init__(self):
+        super().__init__()
+        self._spinner = Spinner("dots", style="yellow")
+
+    def render(self, task):
+        return self._spinner if not task.finished else Text("")
+
+
+SPINNER_COLUMNS = [
     TextColumn("[progress.description]{task.description}"),
-    BarColumn(),
-    TaskProgressColumn(),
+    _StatusColumn(),
 ]
 
 console = Console()
@@ -168,25 +179,30 @@ def merge_config(args, cfg):
 
 
 async def fetch_all(browser, problems, work_dir):
-    """抓取所有题目（rich 进度条），返回数据列表。"""
+    """抓取所有题目（每行 spinner，完成打 ✓/✗），返回数据列表。"""
     datas = []
-    with Progress(*PROGRESS_COLUMNS, console=console) as progress:
-        task = progress.add_task("[cyan]抓取题目[/cyan]", total=len(problems))
+    with Progress(*SPINNER_COLUMNS, console=console) as progress:
+        tasks = {}
+        for prob in problems:
+            pid = prob["pid"]
+            tasks[pid] = progress.add_task(f"[cyan]抓取 {pid}[/cyan]", total=None)
         for i, prob in enumerate(problems, 1):
             pid = prob["pid"]
-            progress.update(task, description=f"[cyan]抓取 {pid}[/cyan]")
             try:
                 data = await fetch_problem(browser, pid, work_dir)
                 data.index = i
                 data.english = prob.get("english", "")
                 data.type = prob.get("type", "传统型")
                 datas.append(data)
+                progress.update(tasks[pid], total=1, completed=1,
+                                description=f"[green]✓[/green] {data.title}")
                 log.info("  完成: %s | %s / %s | %d 组样例",
                          data.title, data.time_limit, data.memory_limit,
                          len(data.samples))
             except Exception as e:
+                progress.update(tasks[pid], total=1, completed=1,
+                                description=f"[red]✗[/red] {pid}")
                 log.error("  失败(%s): %s", pid, e)
-            progress.advance(task)
     if not datas:
         sys.exit("\n错误：所有题目都抓取失败")
     return datas
@@ -359,19 +375,20 @@ def run_latex(datas, contest, out_dir, args):
     (tex_out / "build.sh").write_text(build_build_script(tex_out), encoding="utf-8")
     (tex_out / "build.sh").chmod(0o755)
 
-    # 4) 并行编译全部（文件间独立；进度分两遍：draftmode → 正式输出）
+    # 4) 并行编译全部（每行 spinner，完成打 ✓/✗），PDF 复制到 out_dir
     from concurrent.futures import ThreadPoolExecutor
     pdf_paths = []
 
     def compile_one(tname, progress, tasks):
         tex_path = tex_out / tname
-        result = compile_latex(
-            tex_path, VENV_BIN,
-            progress_cb=lambda n: progress.update(tasks[tname], completed=n))
-        return tname, result
+        ok, pdf = compile_latex(tex_path, VENV_BIN)
+        mark = "[green]✓[/green]" if ok else "[red]✗[/red]"
+        progress.update(tasks[tname], total=1, completed=1,
+                        description=f"{mark} {tname}")
+        return tname, (ok, pdf)
 
-    with Progress(*PROGRESS_COLUMNS, console=console) as progress:
-        tasks = {t: progress.add_task(f"[cyan]{t}[/cyan]", total=2)
+    with Progress(*SPINNER_COLUMNS, console=console) as progress:
+        tasks = {t: progress.add_task(f"[cyan]{t}[/cyan]", total=None)
                  for t in tex_names}
         with ThreadPoolExecutor(max_workers=len(tex_names)) as ex:
             results = list(ex.map(lambda t: compile_one(t, progress, tasks),
