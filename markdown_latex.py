@@ -276,12 +276,9 @@ def md_to_latex(md, images):
         elif kind == "hr":
             out.append(r"\noindent\rule{\textwidth}{0.4pt}")
         elif kind == "quote":
-            # 引用块：tcolorbox 浅底框（同题面样例框的 tcolorbox 样式体系）
+            # 引用块：admonition 风格 callout（statement.cls 定义）
             body = "\n\n".join(_inline(x, images) for x in content.split("\n\n"))
-            out.append(
-                r"\begin{tcolorbox}[colback=gray!6,colframe=gray!50,"
-                r"boxrule=0.4pt,left=4mm,right=4mm,top=1.5mm,bottom=1.5mm]"
-                + "\n" + body + "\n" + r"\end{tcolorbox}")
+            out.append("\\begin{callout}\n" + body + "\n\\end{callout}")
     return "\n\n".join(out)
 
 

@@ -253,7 +253,7 @@ def test_hr_rule():
 
 def test_quote_tcolorbox():
     out = md_to_latex("> 她说：**毕业晚会**后。\n> 少年傍着少女。\n\n正文", None)
-    assert "tcolorbox" in out
+    assert "\\begin{callout}" in out
     assert "\\stress{毕业晚会}" in out
 
 
@@ -261,16 +261,32 @@ def test_quote_empty_lines_merged():
     # 引用内 > 空行是段分隔，不是新块；> 空行不产生字面输出
     md = "> 第一段\n>\n> 第二段\n>\n> 第三段"
     out = md_to_latex(md, None)
-    assert out.count("\\begin{tcolorbox}") == 1
+    assert out.count("\\begin{callout}") == 1
     assert not any(l.strip() == ">" for l in out.split("\n"))
 
 
 def test_quote_not_swallowed_by_para():
     # 段落中途出现引用行不应被并入段落
     out = md_to_latex("段落前\n> 引用行\n段落后", None)
-    assert "tcolorbox" in out
+    assert "\\begin{callout}" in out
 
 
 def test_hr_not_swallowed_by_para():
     out = md_to_latex("段落前\n---\n段落后", None)
     assert "\\rule" in out
+
+
+# ---------------- #### 级标题与公式标题 ----------------
+
+def test_split_hint_four_hash():
+    hint = "#### 样例 1 解释\n解释\n\n#### 数据范围\n范围"
+    parts = _split_hint(hint)
+    assert parts[0][0] == "样例 1 解释"
+    assert parts[1][0] == "数据范围"
+
+
+def test_split_hint_formula_title():
+    # 标题含 $1$（公式标记）
+    hint = "#### 样例 $1$ 解释\n解释内容"
+    parts = _split_hint(hint)
+    assert parts[0][0] == "样例 $1$ 解释"

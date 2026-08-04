@@ -48,3 +48,10 @@ def test_numbered_sample():
     out = _numbered_sample("1\n2")
     assert 'class="ln"' in out
     assert "1</span>  1" in out.replace(" ", "").replace('"', "") or "1" in out
+
+
+def test_split_hint_html_four_hash():
+    html = "<h4>样例 $1$ 解释</h4><p>解释</p><h4>数据范围</h4><p>范围</p>"
+    parts = _split_hint_html(html)
+    assert parts[0][0] == "样例 $1$ 解释"
+    assert parts[1][0] == "数据范围"

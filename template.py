@@ -76,11 +76,11 @@ def hint_title(content):
 
 def _split_hint_html(hint_html):
     """把说明/提示的 HTML 按 <h3> 小标题拆分成 [(标题, 内容HTML), ...]。"""
-    parts = re.split(r"(<h3[^>]*>.*?</h3>)", hint_html, flags=re.S)
+    parts = re.split(r"(<h[34][^>]*>.*?</h[34]>)", hint_html, flags=re.S)
     out = []
     cur_title, cur_body = "", []
     for part in parts:
-        m = re.match(r"<h3[^>]*>(.*?)</h3>", part, flags=re.S)
+        m = re.match(r"<h[34][^>]*>(.*?)</h[34]>", part, flags=re.S)
         if m:
             if cur_title or cur_body:
                 out.append((cur_title, "".join(cur_body)))
@@ -135,7 +135,7 @@ def _sections_html(problem):
         for htitle, hbody in _split_hint_html(hint_html):
             if not hbody.strip():
                 continue
-            m = re.search(r"样例\s*(\d+)\s*解释", htitle)
+            m = re.search(r"样例\s*\$?\s*(\d+)\s*\$?\s*解释", htitle)
             # hint 拆分出的片段无 .lfe-marked 包装，补一层以应用正文缩进等样式
             hbody = f'<div class="lfe-marked">{hbody}</div>'
             if "解释" in htitle and "样例" in htitle:

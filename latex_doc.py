@@ -19,7 +19,7 @@ _env = Environment(loader=FileSystemLoader(ROOT / "templates"), autoescape=False
 
 def _split_hint(hint):
     """按 ### 小标题分段 hint，返回 [(标题, 内容), ...]；### 之前的内容标题为空。"""
-    parts = re.split(r"^###\s+(.+?)\s*$", hint, flags=re.M)
+    parts = re.split(r"^\s*#{1,4}\s+(.+?)\s*$", hint, flags=re.M)
     out = []
     if parts[0].strip():
         out.append(("", parts[0]))
@@ -61,7 +61,7 @@ def build_statement_tex(problem, contest, index, total, images):
         for htitle, hbody in _split_hint(content["hint"]):
             if not hbody.strip():
                 continue
-            m = re.search(r"样例\s*(\d+)\s*解释", htitle)
+            m = re.search(r"样例\s*\$?\s*(\d+)\s*\$?\s*解释", htitle)
             if "解释" in htitle and "样例" in htitle:
                 n = m.group(1) if m else (1 if samples else 1)
                 parts.append({"title": f"样例 {n} 解释",

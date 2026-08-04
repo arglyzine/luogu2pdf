@@ -65,6 +65,12 @@
         ]}
 \AfterEndEnvironment{minted}{\end{tcolorbox}}
 
+% 引用/说明块（admonition 样式：左侧粗线 + 浅灰底 + 直角，
+% 参考 tex.stackexchange.com/q/687578）
+\newtcolorbox{callout}[1][]{breakable, sharp corners, parbox=false,
+  boxrule=0mm, leftrule=2mm, boxsep=0mm, arc=0mm, outer arc=0mm,
+  colback=gray!8, colframe=black, #1}
+
 \newenvironment{example}
 {
     \ttfamily
