@@ -2,7 +2,9 @@
 
 从洛谷抓取题目，生成符合 **CCF NOIP 官方题面**版式的 PDF，支持双后端：
 
-- **HTML 后端**（默认）：Chromium 打印，无需 LaTeX
+- **LaTeX 后端**（默认）：xelatex + minted 排版，格式参考
+  [OI-statement-LaTeX](https://github.com/Wallbreaker5th/OI-statement-LaTeX)（WC2021/NOI2021 风格）
+- **HTML 后端**：Chromium 打印，无需 LaTeX
 - **LaTeX 后端**（`--latex`）：xelatex + minted 排版，格式参考
   [OI-statement-LaTeX](https://github.com/Wallbreaker5th/OI-statement-LaTeX)（WC2021/NOI2021 风格）
 
@@ -63,8 +65,8 @@ LaTeX 后端需要：
 运行：
 
 ```bash
-.venv/bin/python main.py                    # HTML 后端（默认）
-.venv/bin/python main.py --backend latex  # LaTeX 后端
+.venv/bin/python main.py                    # LaTeX 后端（默认）
+.venv/bin/python main.py --backend html    # HTML 后端
 ```
 
 也可全部用命令行（不用配置文件）：
@@ -145,7 +147,7 @@ cd output/<比赛名>/
 
 | 参数 | 作用 |
 |------|------|
-| `--backend {html,latex}` | 渲染后端（默认 html） |
+| `--backend {html,latex}` | 渲染后端（默认 latex） |
 | `--output-dir DIR` | 改输出目录（默认 `output/`） |
 | `--no-merge` | 不生成合集 PDF |
 （HTML 后端中间 HTML 始终输出到 `<比赛名>/html/`；LaTeX 的 tex 源码始终在 `tex/`）

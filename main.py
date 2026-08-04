@@ -156,8 +156,8 @@ def parse_args():
     ap.add_argument("--problems", help="题号列表，逗号分隔，如 P17169,P17170")
     ap.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT,
                     help="输出目录，默认 output/")
-    ap.add_argument("--backend", choices=["html", "latex"], default="html",
-                    help="渲染后端（默认 html；需要 xelatex + minted + pygments）")
+    ap.add_argument("--backend", choices=["html", "latex"], default="latex",
+                    help="渲染后端（默认 latex，需要 xelatex + minted + pygments）")
     ap.add_argument("--no-merge", action="store_true", help="不生成合集 PDF")
     ap.add_argument("--log-dir", type=Path, default=None,
                     help="日志文件目录（默认 .work/logs）")
