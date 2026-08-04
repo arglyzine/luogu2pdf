@@ -38,7 +38,15 @@ from latex_doc import (build_statement_tex, build_problem_doc,
 
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.progress import Progress
+from rich.progress import (BarColumn, Progress, TaskProgressColumn,
+                       TextColumn)
+
+# 进度条只显示 描述 + 进度条 + 百分比（两阶段无剩余时间可估算）
+PROGRESS_COLUMNS = [
+    TextColumn("[progress.description]{task.description}"),
+    BarColumn(),
+    TaskProgressColumn(),
+]
 
 console = Console()
 
@@ -75,7 +83,8 @@ def setup_logging(args):
         fh.setFormatter(logging.Formatter(
             "%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S"))
         log.addHandler(fh)
-        log.info("日志文件: %s", _rel(log_dir / f"luogu2pdf-{ts}.log"))
+        console.print(f"[bold cyan]日志[/bold cyan]: "
+                      f"{_rel(log_dir / f'luogu2pdf-{ts}.log')}")
 
 
 def _rel(path):
@@ -161,7 +170,7 @@ def merge_config(args, cfg):
 async def fetch_all(browser, problems, work_dir):
     """抓取所有题目（rich 进度条），返回数据列表。"""
     datas = []
-    with Progress(console=console) as progress:
+    with Progress(*PROGRESS_COLUMNS, console=console) as progress:
         task = progress.add_task("[cyan]抓取题目[/cyan]", total=len(problems))
         for i, prob in enumerate(problems, 1):
             pid = prob["pid"]
@@ -361,7 +370,7 @@ def run_latex(datas, contest, out_dir, args):
             progress_cb=lambda n: progress.update(tasks[tname], completed=n))
         return tname, result
 
-    with Progress(console=console) as progress:
+    with Progress(*PROGRESS_COLUMNS, console=console) as progress:
         tasks = {t: progress.add_task(f"[cyan]{t}[/cyan]", total=2)
                  for t in tex_names}
         with ThreadPoolExecutor(max_workers=len(tex_names)) as ex:
