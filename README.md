@@ -5,8 +5,6 @@
 - **LaTeX 后端**（默认）：xelatex + minted 排版，格式参考
   [OI-statement-LaTeX](https://github.com/Wallbreaker5th/OI-statement-LaTeX)（WC2021/NOI2021 风格）
 - **HTML 后端**：Chromium 打印，无需 LaTeX
-- **LaTeX 后端**（`--latex`）：xelatex + minted 排版，格式参考
-  [OI-statement-LaTeX](https://github.com/Wallbreaker5th/OI-statement-LaTeX)（WC2021/NOI2021 风格）
 
 输出每题 PDF + 合集 PDF（封面信息表 + 注意事项 + 页码）。
 
@@ -41,10 +39,10 @@ LaTeX 后端需要：
   "time": "9:00-13:00",
   "duration": "4 小时",
   "problems": [
-    { "pid": "P17169", "english": "past" },
-    { "pid": "P17170", "english": "future" },
-    { "pid": "P17171", "english": "present" },
-    { "pid": "P17172", "english": "cause" }
+    { "pid": "P1000", "english": "demo1" },
+    { "pid": "P1001", "english": "demo2" },
+    { "pid": "P1002", "english": "demo3" },
+    { "pid": "P1003", "english": "demo4" }
   ],
   "notes": ["自定义注意事项（可省略，有默认值）"]
 }
@@ -75,7 +73,7 @@ LaTeX 后端需要：
 .venv/bin/python main.py --backend latex \
   --contest "2026-08-03 模拟赛" --date 2026-08-03 \
   --time 9:00-13:00 --duration "4 小时" \
-  --problems P17169,P17170,P17171,P17172
+  --problems P1000,P1001,P1002,P1003
 ```
 
 ## 输出
@@ -84,12 +82,12 @@ LaTeX 后端需要：
 output/2026-08-03-模拟赛/
   第1题-过去.pdf ... 第4题-因果.pdf   ← 每题一个 PDF
   2026-08-03-模拟赛-题面合集.pdf       ← 封面 + 全部题目
+  data/t1/1.in 1.out 2.in 2.out       ← 样例数据（每个可执行文件名一个目录）
+  data/t2/...                         样例按 {n}.in / {n}.out 命名
   html/                            ← HTML 后端中间文件（含 fonts/，目录自包含）
-    t1/1.in 1.out 2.in 2.out        每个可执行文件名一个目录
-    t2/...                          样例按 {n}.in / {n}.out 命名
-  package.sh                        一键重新编译 + 打包下发 zip
-  tex/                              ← LaTeX 源码（--latex 时生成）
-    build.sh                        一键重新编译全部（题数 + 1 个 PDF）
+  package.sh                       ← 一键重新编译 + 打包下发 zip
+  tex/                             ← LaTeX 源码（--backend latex 时生成）
+    build.sh                       一键重新编译全部（题数 + 1 个 PDF）
     第1题-过去.tex ...               单题文档（\input 引用题面 body）
     2026-08-03-模拟赛-题面合集.tex    合集文档（封面 + \input 各题面）
     题面/                            题面内容（单题与合集共用）
@@ -167,7 +165,7 @@ latex_doc.py        LaTeX 文档组装（templates/*.tex.j2）
 compile.py          xelatex 编译
 overlay.py          HTML 合集后处理：按题叠加页眉/页码（reportlab）
 utils.py            共享格式化工具
-tests/              pytest 单元测试（55 个用例）
+tests/              pytest 单元测试（85 个用例）
 ```
 
 - 数据源：洛谷页面内嵌的 `#lentille-context` JSON，题面为 Markdown 源，
@@ -190,5 +188,18 @@ tests/              pytest 单元测试（55 个用例）
   按题分段叠加「比赛名 | 题名」页眉与全局页码（封面无页眉页码）。
 - 封面表格列数随题目数自动调整，时限/内存取各测试点的最大值。
 - 中间产物（原始 JSON、TeX）在 `.work/`，可随时删除。
-- 测试：`pytest tests/` 共 55 个用例；`test_integration.py` 依赖
+- 测试：`pytest tests/` 共 85 个用例；`test_integration.py` 依赖
   `.work/raw_*.json`（先运行过一次抓取），缺失时自动跳过。
+
+## 免责声明
+
+- 本项目仅供**个人学习与自用**，请勿用于商业用途或批量抓取。
+- 题面内容版权归洛谷及原出题人所有；自动抓取行为请遵守
+  [洛谷服务条款](https://www.luogu.com.cn/policy/user)，本工具不规避任何
+  访问限制，仅按公开页面渲染后的内容转换格式。
+- 「NOIP 官方格式」仅为版式上的参考与模仿，与 CCF / NOI 官方无任何
+  关联，生成物不代表官方发布。
+- LaTeX 模板版式思路参考
+  [OI-statement-LaTeX](https://github.com/Wallbreaker5th/OI-statement-LaTeX)
+  （该仓库未声明许可证，本项目仅参考版式、未复制其代码）。
+- 生成的题面 PDF 请勿向无关人员传播。

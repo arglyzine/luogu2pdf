@@ -4,10 +4,10 @@
   "time": "8:30-12:30",
   "duration": "4 小时",
   "problems": [
-    { "pid": "P17088", "english": "boat", "type": "传统型" },
-    { "pid": "P17089", "english": "dice", "type": "传统型" },
-    { "pid": "P17090", "english": "trim", "type": "传统型" },
-    { "pid": "P17091", "english": "count", "type": "传统型" }
+    { "pid": "P1000", "english": "demo1", "type": "传统型" },
+    { "pid": "P1001", "english": "demo2", "type": "传统型" },
+    { "pid": "P1002", "english": "demo3", "type": "传统型" },
+    { "pid": "P1003", "english": "demo4", "type": "传统型" }
   ],
   "notes": [
     "文件名（程序名和输入输出文件名）必须使用英文小写。",
