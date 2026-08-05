@@ -1,0 +1,1 @@
+../assets/latex/statement.cls

@@ -301,3 +301,41 @@ def test_build_build_script_parallel(tmp_path):
     assert "-no-pdf" in script           # 第一遍不写 PDF（写 aux）
     assert "[build]" in script           # 语义化输出
     assert "venv" in script
+
+
+# ---------------- 文件 IO（配置驱动） ----------------
+
+def test_statement_tex_file_io_prefix():
+    from latex_doc import build_statement_tex
+    from model import Contest, Problem
+    from pathlib import Path
+    contest = Contest(name="示例比赛")
+    # 标准 IO：默认前缀
+    p_std = Problem(pid="P1", title="t", index=1,
+                    content={"formatI": "第一行一个正整数 $n$。"},
+                    md_samples=[])
+    tex = build_statement_tex(p_std, contest, 1, 1, Path("img"))
+    assert "从标准输入中读入数据" in tex
+    assert "输入文件：" not in tex
+    # 文件 IO：输入文件行 + 无标准输入前缀
+    p_file = Problem(pid="P2", title="t", english="edit", index=2,
+                     file_io=True,
+                     content={"formatI": "第一行一个整数 $T$。"},
+                     md_samples=[])
+    tex = build_statement_tex(p_file, contest, 2, 2, Path("img"))
+    assert r"输入文件：\filename{edit.in}" in tex
+    assert "从标准输入中读入数据" not in tex
+
+
+def test_cover_tex_file_io_rows():
+    from latex_doc import build_cover_tex
+    from model import Contest, Problem
+    from pathlib import Path
+    contest = Contest(name="示例比赛")
+    probs = [
+        Problem(pid="P1", title="a", english="demo1", index=1, file_io=True),
+        Problem(pid="P2", title="b", english="demo2", index=2),
+    ]
+    tex = build_cover_tex(contest, probs, Path("img"))
+    assert r"输入文件名 & \texttt{demo1.in} & 标准输入" in tex
+    assert r"输出文件名 & \texttt{demo1.out} & 标准输出" in tex

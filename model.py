@@ -12,6 +12,7 @@ class Problem:
     english: str = ""
     type: str = "传统型"
     index: int = 0
+    file_io: bool = False                 # 文件 IO：输入/输出走 {exec_name}.in/.out
     # HTML 后端：DOM 提取的节 HTML 与样例
     time_limit: str = ""                      # 如 "500ms"
     memory_limit: str = ""                    # 如 "16.00MB"

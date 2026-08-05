@@ -96,8 +96,14 @@ def _sections_html(problem):
             continue
         if title is None:
             title = classify_hint(content)
-        prefix = {"输入格式": "从标准输入中读入数据。",
-                  "输出格式": "输出到标准输出中。"}.get(name)
+        if name == "输入格式":
+            prefix = (f"输入文件：<b><i>{problem.exec_name}.in</i></b>。"
+                      if problem.file_io else "从标准输入中读入数据。")
+        elif name == "输出格式":
+            prefix = (f"输出文件：<b><i>{problem.exec_name}.out</i></b>。"
+                      if problem.file_io else "输出到标准输出中。")
+        else:
+            prefix = None
         # prefix 段需在 .lfe-marked 内（正文缩进选择器）才能首行缩进
         body = f'<div class="lfe-marked"><p>{prefix}</p></div>' + content if prefix else content
         parts.append({
@@ -184,8 +190,8 @@ def build_cover_html(contest, problems):
         ("题目类型", [p.type for p in problems]),
         ("目录", [p.exec_name for p in problems]),
         ("可执行文件名", [p.exec_name for p in problems]),
-        ("输入文件名", ["标准输入"] * n),
-        ("输出文件名", ["标准输出"] * n),
+        ("输入文件名", [f"{p.exec_name}.in" if p.file_io else "标准输入" for p in problems]),
+        ("输出文件名", [f"{p.exec_name}.out" if p.file_io else "标准输出" for p in problems]),
         ("每个测试点时限", limits),
         ("内存限制", [fmt_memory(p.memory_limit) for p in problems]),
         ("测试点数目", [str(len(p.limits.get("time", []))) for p in problems]),

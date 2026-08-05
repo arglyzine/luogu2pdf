@@ -48,9 +48,17 @@ def build_statement_tex(problem, contest, index, total, images):
     if content.get("description"):
         sec("题目描述", md_to_latex(content["description"], images))
     if content.get("formatI"):
-        sec("输入格式", "从标准输入中读入数据。\n\n" + md_to_latex(content["formatI"], images))
+        if problem.file_io:
+            pre = f"输入文件：\\filename{{{problem.exec_name}.in}}\n\n"
+        else:
+            pre = "从标准输入中读入数据。\n\n"
+        sec("输入格式", pre + md_to_latex(content["formatI"], images))
     if content.get("formatO"):
-        sec("输出格式", "输出到标准输出中。\n\n" + md_to_latex(content["formatO"], images))
+        if problem.file_io:
+            pre = f"输出文件：\\filename{{{problem.exec_name}.out}}\n\n"
+        else:
+            pre = "输出到标准输出中。\n\n"
+        sec("输出格式", pre + md_to_latex(content["formatO"], images))
 
     if samples:
         for n, pair in enumerate(samples, 1):
@@ -122,8 +130,10 @@ def build_cover_tex(contest, problems, images):
     table += row("题目类型", ["传统型"] * n) + "\n"
     table += row("目录", enames, mono=True) + "\n"
     table += row("可执行文件名", enames, mono=True) + "\n"
-    table += row("输入文件名", ["标准输入"] * n) + "\n"
-    table += row("输出文件名", ["标准输出"] * n) + "\n"
+    io_in = [rf"\texttt{{{p.exec_name}.in}}" if p.file_io else "标准输入" for p in problems]
+    io_out = [rf"\texttt{{{p.exec_name}.out}}" if p.file_io else "标准输出" for p in problems]
+    table += row("输入文件名", io_in) + "\n"
+    table += row("输出文件名", io_out) + "\n"
     table += row("每个测试点时限", limits) + "\n"
     table += row("内存限制", mems) + "\n"
     if any(testcnt):

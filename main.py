@@ -219,6 +219,7 @@ async def fetch_all(browser, problems, work_dir):
                 data.index = i
                 data.english = prob.get("english", "")
                 data.type = prob.get("type", "传统型")
+                data.file_io = prob.get("io") == "file"
                 datas.append(data)
                 log.info("  完成: %s | %s / %s | %d 组样例",
                          data.title, data.time_limit, data.memory_limit,

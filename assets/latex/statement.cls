@@ -108,4 +108,4 @@
 \newcommand\stress[1]{\textbf{\CJKunderdot{#1}}}
 \newcommand\filename[1]{\textbf{\textit{#1}}}
 \newcommand\ttstring[1]{\texttt{\uline{#1}}}
-\newcommand\englishname[1]{\texorpdfstring{\textrm{\MakeLowercase{#1}}}{#1}}
+\newcommand\englishname[1]{\texorpdfstring{\textrm{\textmd{\MakeLowercase{#1}}}}{#1}}
