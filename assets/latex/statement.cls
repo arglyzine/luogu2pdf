@@ -56,22 +56,19 @@
 
 \usepackage{etoolbox}
 % 样例框（minted 3.8 后端自带跨页能力，tcolorbox 包裹分帧）：
-% boxrule=0pt 关闭 tcolorbox 默认边框与断点装饰线（断点处默认
-% 会画变浅的圆角线），改用 overlay first/middle/last/unbroken
-% 自定义每帧边框——断点处完全无线，只有左右线连续贯穿：
+% frame hidden 关闭 tcolorbox 的 frame 绘制——包括断点处的
+% 淡化装饰线（front 底/last 顶）与分帧灰填充，全部边框改由
+% overlay 逐帧绘制，断点处完全无线，只有左右线连续贯穿：
 %   first   顶线 + 左右线（顶部两角圆角，底部无线）
 %   middle  左右线（直角，上下无线）
 %   last    左右线 + 底线（底部两角圆角，顶部无线）
 %   unbroken 完整四边框（四角圆角）
+% 注：overlay unbroken 需要 skin=enhanced（first/middle/last 不需要）
 \BeforeBeginEnvironment{minted}{
     \begin{tcolorbox}[
         skin=enhanced,
-        no shadow,
         breakable,
         frame hidden,
-        segmentation at break=false,
-        parbox=false,
-        boxrule=0pt,
         arc=1mm,
         colback=white,
         left=2mm,
