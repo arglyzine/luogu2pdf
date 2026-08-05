@@ -63,14 +63,23 @@
 %   middle  左右线（直角，上下无线）
 %   last    左右线 + 底线（底部两角圆角，顶部无线）
 %   unbroken 完整四边框（四角圆角）
+% segmentation at break=false：不画分割线（对消除断点线无效，
+% frame hidden 才是），但去掉断点处保留的分割空间（默认 ~11pt），
+% 内容更紧凑、跨页样例前后页数更稳定
+% boxrule=0pt：frame hidden 只关闭绘制，boxrule 仍参与每帧
+% 高度计算（默认 0.4pt × 上下两条 × 多帧会跨页漂移，合集
+% 12→13 页实测）
 % 注：overlay unbroken 需要 skin=enhanced（first/middle/last 不需要）
 \BeforeBeginEnvironment{minted}{
     \begin{tcolorbox}[
         skin=enhanced,
         breakable,
         frame hidden,
+        boxrule=0pt,
+        segmentation at break=false,
         arc=1mm,
         colback=white,
+        parbox=false,
         left=2mm,
         overlay unbroken={
             \draw[blue, line width=0.5pt, rounded corners=1mm] (frame.south west)--(frame.north west)--(frame.north east)--(frame.south east)--cycle;
