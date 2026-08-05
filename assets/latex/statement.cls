@@ -56,17 +56,38 @@
 
 \usepackage{etoolbox}
 % 样例框（minted 3.8 后端自带跨页能力，tcolorbox 包裹分帧）：
-% toprule/bottomrule at break=0pt —— 断页续帧处不画横线，
-% 中间帧只有左右线（「下一页还有 → 本页无底部边框」效果）
+% boxrule=0pt 关闭 tcolorbox 默认边框与断点装饰线（断点处默认
+% 会画变浅的圆角线），改用 overlay first/middle/last/unbroken
+% 自定义每帧边框——断点处完全无线，只有左右线连续贯穿：
+%   first   顶线 + 左右线（顶部两角圆角，底部无线）
+%   middle  左右线（直角，上下无线）
+%   last    左右线 + 底线（底部两角圆角，顶部无线）
+%   unbroken 完整四边框（四角圆角）
 \BeforeBeginEnvironment{minted}{
     \begin{tcolorbox}[
-        colframe=blue,
-        breakable=true,
-        colback = white,
-        boxrule = 0.5pt,
+        skin=enhanced,
+        no shadow,
+        breakable,
+        frame hidden,
+        segmentation at break=false,
+        parbox=false,
+        boxrule=0pt,
+        arc=1mm,
+        colback=white,
         left=2mm,
-        toprule at break=0pt,
-        bottomrule at break=0pt,
+        overlay unbroken={
+            \draw[blue, line width=0.5pt, rounded corners=1mm] (frame.south west)--(frame.north west)--(frame.north east)--(frame.south east)--cycle;
+        },
+        overlay first={
+            \draw[blue, line width=0.5pt, rounded corners=1mm] (frame.south west)--(frame.north west)--(frame.north east)--(frame.south east);
+        },
+        overlay middle={
+            \draw[blue, line width=0.5pt] (frame.north west)--(frame.south west);
+            \draw[blue, line width=0.5pt] ([xshift=-0.5pt]frame.north east)--([xshift=-0.5pt]frame.south east);
+        },
+        overlay last={
+            \draw[blue, line width=0.5pt, rounded corners=1mm] (frame.north west)--(frame.south west)--(frame.south east)--(frame.north east);
+        },
         ]}
 \AfterEndEnvironment{minted}{\end{tcolorbox}}
 
