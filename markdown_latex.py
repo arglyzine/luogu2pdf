@@ -251,8 +251,9 @@ def md_to_latex(md, images):
     """Markdown 文本 → LaTeX 源码（段落级）。"""
     _NESTED_TOKENS.clear()
     md = re.sub(r"::anti-ai\[[^\]]*\]", "", md)
-    # 删除 :::warning{...} 块标记行与结尾 ::: 行（含其他 ::: 块）
-    md = re.sub(r"^:::[a-z-]*(\{[^}]*\})?\s*$", "", md, flags=re.M)
+    # 删除 :::warning{...} / ::::info[标题] 等折叠块标记行与结尾 ::: 行
+    # （3+ 冒号，可选 [标题]/{参数}；内容保留，折叠语义丢弃）
+    md = re.sub(r"^:{3,}[a-z-]*(\[[^\]]*\])?(\{[^}]*\})?\s*$", "", md, flags=re.M)
     md = re.sub(r"::[a-z-]+(\{[^}]*\})?", "", md)
     out = []
     for kind, content in _split_blocks(md):
