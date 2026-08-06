@@ -17,3 +17,5 @@ example/*.out
 example/*.xdv
 example/_minted/
 example/_F*.data.minted
+*.un~
+*~
