@@ -135,6 +135,7 @@
   }
 
   // Markdown 源数据（用于 LaTeX 后端）：公式为 LaTeX 源码，防作弊为 ::anti-ai[]
+  // contenu = 当前语言（中文站）题面；content = 原始语言（外文题原文）
   const lc = document.getElementById('lentille-context');
   if (lc) {
     try {
@@ -142,7 +143,7 @@
       const pr = j.data.problem;
       res.md = {
         name: pr.name || '',
-        content: pr.content || {},
+        content: pr.contenu || pr.content || {},
         samples: pr.samples || [],
         limits: pr.limits || {}
       };

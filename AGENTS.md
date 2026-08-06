@@ -63,6 +63,17 @@ utils.py             共享格式化工具（日期/时限/内存/文件名）
 - **不暴露洛谷题号**：标题/页眉/封面/文件名用 `english` 或 `t{index}`。
 - **数据流**：`luogu.py` 从页面 DOM 取渲染后 HTML（HTML 后端用），从
   `#lentille-context` 取 Markdown 源（LaTeX 后端用，公式即 LaTeX 源码）。
+- **lentille 结构**：`#lentille-context` 是 `<script type="application/json">`，
+  `JSON.parse(textContent)` 后取 `data.problem`：
+  - `contenu`：**当前语言题面**（中文站为中文翻译，含 `locale` 字段；
+    外文题如 USACO 有翻译）。`content` 是**原始语言**（英文原文）——
+    读 contenu，不要读 content（P16574 案例）
+  - `content.contenu` 的 key：`name/background/description/formatI/formatO/hint/locale`
+  - `samples`：`[["输入","输出"], ...]`；`limits`：`{"time":[ms...],"memory":[KB...]}`
+  - `attachments`：`[{id, filename, size, uploadTime, downloadLink}]`，
+    `downloadLink` 为相对路径，拼 `https://www.luogu.com.cn` 下载
+  - 页面 DOM 的 `h2.title`、`.problem` 渲染区（sections）与附件卡片
+    不在 JSON 里，仍从 DOM 提取（extract.js）
 - **模板改版式**：改 `templates/*.j2`（HTML）或 `assets/latex/statement.cls`
   （LaTeX 全局样式），不要改 Python 字符串。
 - **测试**：改 `markdown_latex.py`/`template.py`/`utils.py` 必须跑
