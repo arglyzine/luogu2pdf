@@ -464,14 +464,55 @@ def export_samples(datas, out_dir):
             continue
         pdir = data_dir / d.exec_name
         pdir.mkdir(parents=True, exist_ok=True)
+        # 文件名：有英文名时按官方风格 {english}{n}.in/.ans，否则 {n}.in/.ans
+        # （.ans 为答案文件，NOIP 数据包惯例）
+        stem = d.english_name or ""
         for n, pair in enumerate(samples, 1):
             inp, outp = pair[0], pair[1] if len(pair) > 1 else ""
-            write(pdir / f"{n}.in", inp)
+            write(pdir / f"{stem}{n}.in", inp)
             if outp:
-                write(pdir / f"{n}.out", outp)
+                write(pdir / f"{stem}{n}.ans", outp)
             count += 1
     if count:
         log.info("样例数据已导出: %s（%d 组）", _rel(data_dir), count)
+    return count
+
+
+def _print_code_tips(datas):
+    """抓取后的提示：题面含代码块 / 附件为数据文件时提醒用户。"""
+    for d in datas:
+        if d.content and any("```" in (d.content.get(k) or "") for k in d.content):
+            console.print(
+                f"  [yellow]提示[/yellow]: {d.title} 题面含代码块——PDF 内代码不便复制，"
+                "若选手需要代码文件，请确认该题已配置附件（网页题面可正常复制）",
+                highlight=False)
+        if (not d.english_name
+                and any(a["filename"].endswith((".in", ".out", ".ans"))
+                        for a in d.attachments)):
+            console.print(
+                f"  [yellow]提示[/yellow]: {d.title} 附件含数据文件（*.in/*.out/*.ans）——"
+                "建议在 contest.json 中为该题配置 english（可执行文件名），"
+                "使附件目录名与题对应", highlight=False)
+
+
+def export_attachments(datas, out_dir):
+    """把抓取时下载的附件复制到 output/<比赛名>/data/<可执行文件名>/（与样例同目录）。"""
+    data_dir = out_dir / "data"
+    count = 0
+    for d in datas:
+        if not d.attachments:
+            continue
+        pdir = data_dir / d.exec_name
+        pdir.mkdir(parents=True, exist_ok=True)
+        for a in d.attachments:
+            src = Path(a["local"])
+            if src.exists():
+                dest = pdir / a["filename"]
+                if not dest.exists() or dest.stat().st_size != src.stat().st_size:
+                    dest.write_bytes(src.read_bytes())
+                count += 1
+    if count:
+        log.info("附件已导出: %s（%d 个文件）", _rel(data_dir), count)
     return count
 
 
@@ -572,6 +613,8 @@ async def run(args):
         try:
             datas = await fetch_all(browser, problems, WORK_DIR)
             export_samples(datas, out_dir)
+            export_attachments(datas, out_dir)
+            _print_code_tips(datas)
             if args.backend == "latex":
                 for d in datas:
                     if not d.content:

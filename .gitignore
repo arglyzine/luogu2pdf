@@ -3,6 +3,7 @@
 output/
 output-html/
 contest.json
+.luogu_cookies.json
 __pycache__/
 *.pyc
 *.log

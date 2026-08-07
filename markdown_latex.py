@@ -95,6 +95,12 @@ def _inline(text, images):
         code_tokens.append(m.group(1))
         return f"\x00C{len(code_tokens) - 1}\x00"
     text = re.sub(r"`([^`]+)`", code_repl, text)
+    # 下划线斜体 _x_（洛谷语法）：先占位，避免 _ 被转义（*x* 不受转义影响，原地处理）
+    em_tokens = []
+    def em_repl(m):
+        em_tokens.append(m.group(1))
+        return f"\x00E{len(em_tokens) - 1}\x00"
+    text = re.sub(r"_([^_]+)_", em_repl, text)
     # 转义非公式部分（反斜杠、特殊字符）；未配对的 $ 转义为文本
     text = _escape_special(text)
     text = text.replace("$", r"\textdollar{}")
@@ -103,6 +109,9 @@ def _inline(text, images):
     text = re.sub(r"\x00I(\d+)\x00", lambda m: img_tokens[int(m.group(1))], text)
     text = re.sub(r"\x00C(\d+)\x00",
                   lambda m: r"\texttt{" + _escape_special(code_tokens[int(m.group(1))]) + "}",
+                  text)
+    text = re.sub(r"\x00E(\d+)\x00",
+                  lambda m: r"\textit{" + _restore(em_tokens[int(m.group(1))], tokens) + "}",
                   text)
     # 粗体 **x** → \stress（加粗 + 着重号，官方强调风格）；含公式/命令时退回 \textbf
     def bold_repl(m):
@@ -144,13 +153,17 @@ def _split_blocks(md):
             i += 1
             continue
         if line.lstrip().startswith("```"):
+            # 围栏语言（```cpp 等）；洛谷未指定语言 fallback C++，但
+            # 转换端保守处理为 text（避免误高亮，如样例数据块）
+            rest = line.strip()[3:].strip()
+            lang = rest.split()[0] if rest else ""
             code = []
             i += 1
             while i < len(lines) and not lines[i].lstrip().startswith("```"):
                 code.append(lines[i])
                 i += 1
             i += 1
-            blocks.append(("code", "\n".join(code)))
+            blocks.append(("code", (lang, "\n".join(code))))
         elif re.match(r"^\s*\|", line):
             tbl = []
             while i < len(lines) and re.match(r"^\s*\|", lines[i]):
@@ -161,15 +174,16 @@ def _split_blocks(md):
             # 分割线（markdown ---）
             i += 1
             blocks.append(("hr", None))
-        elif re.match(r"^\s*>\s*$", line) or re.match(r"^\s*>\s", line):
-            # 引用块：连续 > 行；单独的 > 作为段分隔
+        elif re.match(r"^\s*>", line):
+            # 引用块：连续 > 行（> 后可直接接内容，如 >「文本」）；
+            # 单独的 > 作为段分隔
             quote = []
             while i < len(lines):
                 l = lines[i]
                 if re.match(r"^\s*>\s*$", l):
                     quote.append("")
                     i += 1
-                elif re.match(r"^\s*>\s", l):
+                elif re.match(r"^\s*>", l):
                     quote.append(re.sub(r"^\s*>\s*", "", l))
                     i += 1
                 else:
@@ -182,7 +196,7 @@ def _split_blocks(md):
             para = []
             while i < len(lines) and lines[i].strip() and not re.match(r"^\s*\|", lines[i]) \
                     and not re.match(r"^\s*[-*]\s+", lines[i]) and not re.match(r"^\s*\d+\.\s+", lines[i]) \
-                    and not re.match(r"^\s*>\s*$", lines[i]) and not re.match(r"^\s*>\s", lines[i]) \
+                    and not re.match(r"^\s*>", lines[i]) \
                     and not re.match(r"^\s*---+\s*$", lines[i]) \
                     and not lines[i].lstrip().startswith("```"):
                 para.append(lines[i].strip())
@@ -270,8 +284,16 @@ def md_to_latex(md, images):
             items = [re.sub(r"\x00NL(\d+)\x00", restore, x) for x in items]
             out.append(_list_to_tex(kind, items))
         elif kind == "code":
-            code = _escape_special(content)
-            out.append(r"\begin{verbatim}" + code + r"\end{verbatim}")
+            # 代码块 → minted 语法高亮（语言标记来自围栏，如 ```cpp）；
+            # 无语言 → text。反斜杠转义与样例框一致（minted 的
+            # commandchars 会消费 \）；样例框样式由 statement.cls 的
+            # \BeforeBeginEnvironment{minted} 统一包裹
+            lang = content[0] if isinstance(content, tuple) else ""
+            body = content[1] if isinstance(content, tuple) else content
+            body = body.replace("\\", r"\textbackslash{}")
+            # 代码块需要长行折行（breaklines；样例框不折行保持紧凑）
+            out.append(_env.get_template("sample.tex.j2").render(
+                content=body, lang=lang or "text", wrap=True))
         elif kind == "table":
             out.append(_table_to_latex(content))
         elif kind == "hr":

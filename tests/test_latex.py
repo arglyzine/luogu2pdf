@@ -339,3 +339,80 @@ def test_cover_tex_file_io_rows():
     tex = build_cover_tex(contest, probs, Path("img"))
     assert r"输入文件名 & \texttt{demo1.in} & 标准输入" in tex
     assert r"输出文件名 & \texttt{demo1.out} & 标准输出" in tex
+
+
+# ---------------- 示例代码：minted 高亮代码块 + 下划线斜体 ----------------
+
+def test_code_block_language_highlight():
+    out = md_to_latex("```cpp\nint main() { return 0; }\n```", None)
+    assert r"\begin{minted}[linenos, breaklines]{cpp}" in out
+    assert "int main()" in out
+
+
+def test_code_block_no_lang_is_text():
+    out = md_to_latex("```\nplain data\n```", None)
+    assert r"\begin{minted}[linenos, breaklines]{text}" in out
+    assert r"\begin{verbatim}" not in out
+
+
+def test_underscore_italic():
+    out = md_to_latex("见题目附件 _example.cpp_。", None)
+    assert r"\textit{example.cpp}" in out
+    assert "\\_example" not in out
+
+
+def test_statement_tex_attachments_section():
+    from latex_doc import build_statement_tex
+    from model import Contest, Problem
+    from pathlib import Path
+    contest = Contest(name="示例比赛")
+    p = Problem(pid="P1", title="t", index=1,
+                content={"description": "题面"},
+                attachments=[{"filename": "ex_dream.in", "size": 2048},
+                             {"filename": "a_b.txt", "size": 1024}])
+    tex = build_statement_tex(p, contest, 1, 1, Path("img"))
+    assert r"\subsection[ 附件 ]{【 附件 】}" in tex
+    assert r"\filename{ex\_dream.in}" in tex   # 下划线转义（曾触发 Missing $）
+    assert "（2.0 KB）" in tex
+
+
+# ---------------- 英文名下划线转义（曾触发 Missing $） ----------------
+
+def test_statement_tex_english_underscore_escaped():
+    from latex_doc import build_statement_tex
+    from model import Contest, Problem
+    from pathlib import Path
+    contest = Contest(name="示例比赛")
+    p = Problem(pid="P1", title="课间的白日梦", english="ex_dream", index=1,
+                content={"description": "题面"})
+    tex = build_statement_tex(p, contest, 1, 1, Path("img"))
+    assert r"\englishname{ ex\_dream }" in tex
+    assert "ex_dream" in tex.replace(r"\_", "_")  # 内容仍在（转义后）
+
+
+def test_cover_tex_exec_name_underscore_escaped():
+    from latex_doc import build_cover_tex
+    from model import Contest, Problem
+    from pathlib import Path
+    contest = Contest(name="示例比赛")
+    probs = [Problem(pid="P1", title="a", english="ex_dream", index=1, file_io=True)]
+    tex = build_cover_tex(contest, probs, Path("img"))
+    assert r"\texttt{ex\_dream}" in tex          # 可执行文件名行
+    assert r"\texttt{ex\_dream.in}" in tex       # 文件 IO 输入文件名行
+    assert r"\texttt{ex\_dream.out}" in tex
+
+
+# ---------------- 引用块 corner case ----------------
+
+def test_quote_without_space_after_gt():
+    # > 后直接接内容（全角字符）此前漏解析为裸文本
+    out = md_to_latex(">「世界で一番おひめさま。」\n\n正文", None)
+    assert r"\begin{callout}" in out
+    assert "「世界で一番おひめさま。」" in out
+    assert out.count(">") == 0
+
+
+def test_quote_with_space():
+    out = md_to_latex("> 带空格引用\n> 第二行\n\n正文", None)
+    assert r"\begin{callout}" in out
+    assert "带空格引用\n第二行" in out

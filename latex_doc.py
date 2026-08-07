@@ -49,13 +49,13 @@ def build_statement_tex(problem, contest, index, total, images):
         sec("题目描述", md_to_latex(content["description"], images))
     if content.get("formatI"):
         if problem.file_io:
-            pre = f"输入文件：\\filename{{{problem.exec_name}.in}}\n\n"
+            pre = f"输入文件：\\filename{{{_escape_special(problem.exec_name)}.in}}\n\n"
         else:
             pre = "从标准输入中读入数据。\n\n"
         sec("输入格式", pre + md_to_latex(content["formatI"], images))
     if content.get("formatO"):
         if problem.file_io:
-            pre = f"输出文件：\\filename{{{problem.exec_name}.out}}\n\n"
+            pre = f"输出文件：\\filename{{{_escape_special(problem.exec_name)}.out}}\n\n"
         else:
             pre = "输出到标准输出中。\n\n"
         sec("输出格式", pre + md_to_latex(content["formatO"], images))
@@ -80,9 +80,20 @@ def build_statement_tex(problem, contest, index, total, images):
                 title = htitle or classify_hint(hbody)
                 sec(title, md_to_latex(hbody, images))
 
+    # 附件：题面末尾列文件名（文件本体在 data/<exec_name>/ 与下发 zip）
+    if problem.attachments:
+        items = "".join(
+            rf"\item \filename{{{_escape_special(a['filename'])}}}"
+            + (f"（{a['size'] / 1024:.1f} KB）" if a.get("size") else "")
+            + "\n"
+            for a in problem.attachments)
+        sec("附件", r"\begin{itemize}" + items + r"\end{itemize}")
+
     return _env.get_template("statement.tex.j2").render(
         name=name,
-        en=problem.english_name,
+        # 英文名嵌入 LaTeX（\englishname{...}），特殊字符需转义
+        # （如 english="ex_dream" 的下划线曾触发 Missing $）
+        en=_escape_special(problem.english_name),
         sections=parts,
     )
 
@@ -94,7 +105,10 @@ def _sample_block(text):
     出现空行）；minted 3.8 对无尾随换行的最后一行不重复。"""
     escaped = text.rstrip("\n")
     escaped = escaped.replace("\\", r"\textbackslash{}")
-    return _env.get_template("sample.tex.j2").render(content=escaped)
+    # 样例数据行短，不折行（breaklines 会让 fvextra 的 parbox 首尾
+    # strut 膨胀上下 padding，样例框保持紧凑）
+    return _env.get_template("sample.tex.j2").render(
+        content=escaped, lang="text", wrap=False)
 
 
 def build_cover_tex(contest, problems, images):
@@ -104,7 +118,7 @@ def build_cover_tex(contest, problems, images):
     信息表格（目录/可执行文件名/测试点数目等）、数据列居中。
     """
     names = [p.content.get("name", p.pid) for p in problems]
-    enames = [p.exec_name for p in problems]
+    enames = [_escape_special(p.exec_name) for p in problems]
     limits = []
     mems = []
     testcnt = []
@@ -130,8 +144,8 @@ def build_cover_tex(contest, problems, images):
     table += row("题目类型", ["传统型"] * n) + "\n"
     table += row("目录", enames, mono=True) + "\n"
     table += row("可执行文件名", enames, mono=True) + "\n"
-    io_in = [rf"\texttt{{{p.exec_name}.in}}" if p.file_io else "标准输入" for p in problems]
-    io_out = [rf"\texttt{{{p.exec_name}.out}}" if p.file_io else "标准输出" for p in problems]
+    io_in = [rf"\texttt{{{_escape_special(p.exec_name)}.in}}" if p.file_io else "标准输入" for p in problems]
+    io_out = [rf"\texttt{{{_escape_special(p.exec_name)}.out}}" if p.file_io else "标准输出" for p in problems]
     table += row("输入文件名", io_in) + "\n"
     table += row("输出文件名", io_out) + "\n"
     table += row("每个测试点时限", limits) + "\n"
