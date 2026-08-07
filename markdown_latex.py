@@ -116,6 +116,28 @@ def _preprocess(md):
     return md
 
 
+def _protect_bold(text, bold_tokens):
+    """保护 **x**（x 不含 *）为占位。
+
+    markdown-it 的 flanking 规则对「** 后跟标点」不解析（如
+    **「美丽值」**，旧手写正则正常）——统一预处理保护，渲染层
+    恢复 \stress/\textbf；内容可能含公式占位（先于本步保护）。
+    """
+    def repl(m):
+        bold_tokens.append(m.group(1))
+        return f"\ue000B{len(bold_tokens) - 1}\ue000"
+    return re.sub(r"\*\*([^*\n]+?)\*\*", repl, text)
+    md = re.sub(r"::anti-ai\[[^\]]*\]", "", md)
+    # 删除 :::warning{...} / ::::info[标题] 等折叠块标记行与结尾 ::: 行
+    # （3+ 冒号，可选 [标题]/{参数}；内容保留，折叠语义丢弃）
+    md = re.sub(r"^:{3,}[a-z-]*(\[[^\]]*\])?(\{[^}]*\})?\s*$", "", md, flags=re.M)
+    md = re.sub(r"::[a-z-]+(\{[^}]*\})?", "", md)
+    # 独立 --- 行在段落后会被 markdown-it 解析为 setext 标题（标准行为），
+    # 洛谷题面中 --- 的意图是分隔线：换成 ___（同为 hr，且不触发 setext）
+    md = re.sub(r"^---+$", "___", md, flags=re.M)
+    return md
+
+
 def _collect_until(children, start, close_type):
     """收集 children[start:j] 直到 close_type（不含）；返回 (j, 子列表)。
 
@@ -128,7 +150,7 @@ def _collect_until(children, start, close_type):
     return j, children[start:j]
 
 
-def _render_inline_children(children, images, math_tokens):
+def _render_inline_children(children, images, math_tokens, bold_tokens):
     """inline children → LaTeX（公式占位在 text token 中，最后统一恢复）。"""
     out = []
     i = 0
@@ -136,7 +158,10 @@ def _render_inline_children(children, images, math_tokens):
     while i < n:
         c = children[i]
         if c.type == "text":
-            out.append(_escape_special(c.content))
+            out.append(re.sub(r"\ue000B(\d+)\ue000",
+                              lambda m: _render_bold(bold_tokens[int(m.group(1))],
+                                                    images, math_tokens),
+                              _escape_special(c.content)))
         elif c.type == "softbreak":
             out.append("\n")
         elif c.type == "hardbreak":
@@ -145,7 +170,7 @@ def _render_inline_children(children, images, math_tokens):
             out.append(r"\texttt{" + _escape_special(c.content) + "}")
         elif c.type == "strong_open":
             j, inner = _collect_until(children, i + 1, "strong_close")
-            content = _render_inline_children(inner, images, math_tokens)
+            content = _render_inline_children(inner, images, math_tokens, bold_tokens)
             # 含公式/命令时退回 \textbf（\stress 的着重号只适合纯文本）
             if "$" in content or "\\" in content:
                 out.append(r"\textbf{" + content + "}")
@@ -155,7 +180,7 @@ def _render_inline_children(children, images, math_tokens):
         elif c.type == "em_open":
             j, inner = _collect_until(children, i + 1, "em_close")
             out.append(r"\textit{"
-                       + _render_inline_children(inner, images, math_tokens) + "}")
+                       + _render_inline_children(inner, images, math_tokens, bold_tokens) + "}")
             i = j
         elif c.type in ("link_open", "link_close"):
             pass  # 剥链接，保留文本
@@ -168,6 +193,21 @@ def _render_inline_children(children, images, math_tokens):
     text = _restore(text, math_tokens)
     text = _display_wrap(text)
     return text
+
+
+def _render_bold(content, images, math_tokens):
+    """预处理保护的粗体内容 → \stress（含公式/命令时 \textbf）。"""
+    math = []
+    content, math = _protect_math(content, math)
+    content = _fix_math(content)
+    content, math = _protect_math(content, math)
+    for t in _md.parse(content):
+        if t.type == "inline" and t.children:
+            rendered = _render_inline_children(t.children, images, math, [])
+            if "$" in rendered or "\\" in rendered:
+                return r"\textbf{" + rendered + "}"
+            return r"\stress{" + rendered + "}"
+    return ""
 
 
 def _render_image(c, images):
@@ -193,13 +233,13 @@ def _render_cell_text(text, images, math_tokens):
     text, math_tokens = _protect_math(text, math_tokens)
     for t in _md.parse(text):
         if t.type == "inline" and t.children:
-            return _render_inline_children(t.children, images, math_tokens)
+            return _render_inline_children(t.children, images, math_tokens, [])
     return ""
 
 
-def _render_heading(tag, tokens, i, images, math_tokens):
+def _render_heading(tag, tokens, i, images, math_tokens, bold_tokens):
     inline = tokens[i + 1]
-    body = _render_inline_children(inline.children, images, math_tokens)
+    body = _render_inline_children(inline.children, images, math_tokens, bold_tokens)
     level = int(tag[1])
     if level >= 3:
         # ### 及以上 → 小节标题（hint 的 ### 由 latex_doc._split_hint 处理，
@@ -224,7 +264,7 @@ def _collect_until_close(tokens, start, close_type):
     return j + 1, tokens[start:j]
 
 
-def _render_tokens(tokens, images, math_tokens):
+def _render_tokens(tokens, images, math_tokens, bold_tokens):
     """块级 token 流 → LaTeX（段落间 \n\n 分隔）。"""
     out = []
     i = 0
@@ -233,12 +273,12 @@ def _render_tokens(tokens, images, math_tokens):
         t = tokens[i]
         if t.type == "paragraph_open":
             inline = tokens[i + 1]
-            out.append(_render_inline_children(inline.children, images, math_tokens))
+            out.append(_render_inline_children(inline.children, images, math_tokens, bold_tokens))
             i += 3
         elif t.type == "blockquote_open":
             j, body = _collect_until_close(tokens, i + 1, "blockquote_close")
             out.append("\\begin{callout}\n"
-                       + _render_tokens(body, images, math_tokens)
+                       + _render_tokens(body, images, math_tokens, bold_tokens)
                        + "\n\\end{callout}")
             i = j
         elif t.type in ("bullet_list_open", "ordered_list_open"):
@@ -246,12 +286,12 @@ def _render_tokens(tokens, images, math_tokens):
             j, body = _collect_until_close(
                 tokens, i + 1,
                 "bullet_list_close" if kind == "itemize" else "ordered_list_close")
-            out.append(_render_list(kind, body, images, math_tokens))
+            out.append(_render_list(kind, body, images, math_tokens, bold_tokens))
             i = j
         elif t.type == "fence":
             info = (t.info or "").strip()
             lang = info.split()[0] if info else ""
-            content = t.content
+            content = t.content.rstrip("\n")
             # 代码块需要长行折行（breaklines；样例框不折行保持紧凑）
             out.append(_env.get_template("sample.tex.j2").render(
                 content=content, lang=lang or "text", wrap=True))
@@ -264,10 +304,10 @@ def _render_tokens(tokens, images, math_tokens):
             out.append(r"\noindent\rule{\textwidth}{0.4pt}")
             i += 1
         elif t.type == "heading_open":
-            out.append(_render_heading(t.tag, tokens, i, images, math_tokens))
+            out.append(_render_heading(t.tag, tokens, i, images, math_tokens, bold_tokens))
             i += 3
         elif t.type == "code_block":
-            content = t.content
+            content = t.content.rstrip("\n")
             out.append(_env.get_template("sample.tex.j2").render(
                 content=content, lang="text", wrap=True))
             i += 1
@@ -278,7 +318,7 @@ def _render_tokens(tokens, images, math_tokens):
     return "\n\n".join(out)
 
 
-def _render_list(kind, body, images, math_tokens):
+def _render_list(kind, body, images, math_tokens, bold_tokens):
     """列表 token 体（list_item_open..list_item_close 为一项）→ itemize/enumerate。"""
     items = []
     i = 0
@@ -287,7 +327,7 @@ def _render_list(kind, body, images, math_tokens):
         if body[i].type == "list_item_open":
             j, item_tokens = _collect_until_close(body, i + 1, "list_item_close")
             # 项内容：段落 + 嵌套列表（_render_tokens 输出 \n\n 分隔）
-            rendered = _render_tokens(item_tokens, images, math_tokens)
+            rendered = _render_tokens(item_tokens, images, math_tokens, bold_tokens)
             items.append(rendered)
             i = j
         else:
@@ -321,12 +361,14 @@ def md_to_latex(md, images):
     """Markdown 文本 → LaTeX 源码（段落级）。"""
     math_tokens = []
     md = _preprocess(md)
+    bold_tokens = []
+    md = _protect_bold(md, bold_tokens)
     # 公式保护：先闭合的（$$/$），补全未闭合 $ 后再保护一次
     md, math_tokens = _protect_math(md, math_tokens)
     md = _fix_math(md)
     md, math_tokens = _protect_math(md, math_tokens)
     tokens = _md.parse(md)
-    return _render_tokens(tokens, images, math_tokens)
+    return _render_tokens(tokens, images, math_tokens, bold_tokens)
 
 
 def _table_to_latex(rows, images=None, math_tokens=None):
