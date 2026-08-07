@@ -108,6 +108,19 @@ utils.py             共享格式化工具（日期/时限/内存/文件名）
 
 ## 已知坑（改动前必读）
 
+- **breaklines 膨胀样例框 padding**：fvextra 折行行
+  `\parbox[t]{\noindent\strut...\strut}` 的首尾 strut 让框上下
+  padding 增加 ~12pt（与行数无关）；样例框（text 数据）不要开
+  breaklines，只给代码块开（`sample.tex.j2` 的 `wrap` 参数）。
+- **嵌入 LaTeX 的字符串必须 `_escape_special`**：english/exec_name/
+  附件名/文件名含下划线（如 `ex_dream`）会触发 `Missing $` →
+  `-halt-on-error` 中止 → afterlastpage 钩子不跑 → minted batch
+  不执行 → 全部样例变 `<MINTED>` 占位（连环故障）。
+- **markdown 解析 corner case 优先迁移而非补丁**：手写解析器
+  （`markdown_latex.py`）持续踩坑（`>「」` 无空格、`::::` 折叠块、
+  `_x_` 斜体）；再遇新 corner case 时优先实施 `docs/TODO.md` 的
+  markdown-it-py 迁移。
+
 - **tabularray 与 tabularx 冲突**：同一文档加载两者时，`>{\centering\arraybackslash}X`
   列格式报错；封面表格用 tabularx + `\multicolumn`，题面表格用 tabularray。
 - **tabularray 的 `\SetCell[c=N]` 列合并在当前版本报错**（行合并 `[r=N]` 正常）；
