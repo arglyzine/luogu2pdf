@@ -20,3 +20,4 @@ example/_minted/
 example/_F*.data.minted
 *.un~
 *~
+release-notes.md

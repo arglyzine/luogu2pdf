@@ -104,7 +104,6 @@ def _sample_block(text):
     去掉尾部换行：verbatim 对尾随 \\n 会多渲染一个空行（行号
     出现空行）；minted 3.8 对无尾随换行的最后一行不重复。"""
     escaped = text.rstrip("\n")
-    escaped = escaped.replace("\\", r"\textbackslash{}")
     # 样例数据行短，不折行（breaklines 会让 fvextra 的 parbox 首尾
     # strut 膨胀上下 padding，样例框保持紧凑）
     return _env.get_template("sample.tex.j2").render(
