@@ -174,15 +174,16 @@ def _split_blocks(md):
             # 分割线（markdown ---）
             i += 1
             blocks.append(("hr", None))
-        elif re.match(r"^\s*>\s*$", line) or re.match(r"^\s*>\s", line):
-            # 引用块：连续 > 行；单独的 > 作为段分隔
+        elif re.match(r"^\s*>", line):
+            # 引用块：连续 > 行（> 后可直接接内容，如 >「文本」）；
+            # 单独的 > 作为段分隔
             quote = []
             while i < len(lines):
                 l = lines[i]
                 if re.match(r"^\s*>\s*$", l):
                     quote.append("")
                     i += 1
-                elif re.match(r"^\s*>\s", l):
+                elif re.match(r"^\s*>", l):
                     quote.append(re.sub(r"^\s*>\s*", "", l))
                     i += 1
                 else:
@@ -195,7 +196,7 @@ def _split_blocks(md):
             para = []
             while i < len(lines) and lines[i].strip() and not re.match(r"^\s*\|", lines[i]) \
                     and not re.match(r"^\s*[-*]\s+", lines[i]) and not re.match(r"^\s*\d+\.\s+", lines[i]) \
-                    and not re.match(r"^\s*>\s*$", lines[i]) and not re.match(r"^\s*>\s", lines[i]) \
+                    and not re.match(r"^\s*>", lines[i]) \
                     and not re.match(r"^\s*---+\s*$", lines[i]) \
                     and not lines[i].lstrip().startswith("```"):
                 para.append(lines[i].strip())
