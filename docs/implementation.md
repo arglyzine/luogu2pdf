@@ -64,6 +64,7 @@ AST→LaTeX 渲染器（`_render_tokens` 块级 / `_render_inline_children` 行�
 - **预处理**（喂给解析器之前）：`::anti-ai`、折叠块标记行（3+ 冒号）、
   行内 `::` 标记清理；`$...$`/`$$...$$` 公式占位保护（markdown-it 不解析
   `$`，但公式内容里的 `_`/`*` 会触发强调，必须提前保护）；
+  `**x**` 粗体占位保护（flanking 规则见踩坑）；
   独立 `---` 行换 `___`（段落后紧跟 `---` 会被 CommonMark 解析为
   setext 标题，而洛谷的意图是分隔线）
 - **渲染层**：公式占位恢复（`$` 直通 LaTeX 源码）、`^` 表格合并
@@ -81,6 +82,11 @@ AST→LaTeX 渲染器（`_render_tokens` 块级 / `_render_inline_children` 行�
 - **`_collect_until` 返回 close 的索引**（不是 j+1）：调用处赋值后由
   主循环 `i += 1` 自然越过 close，返回 j+1 会再跳过 close 后的第一个
   token（文本丢失）
+- **`**` 后跟标点的粗体不解析**：markdown-it 的 flanking 规则对
+  `**「美丽值」**` 不产生 strong（旧手写正则正常）——预处理统一保护
+  `**x**`（`_protect_bold`），渲染层恢复 `\stress`/`\textbf`
+- **fence 内容尾随换行**：markdown-it 保留代码块末尾 `\n`，minted
+  会多渲染一个空行——`rstrip("\n")`（与样例框同坑）
 
 ## 测试
 

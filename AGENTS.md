@@ -116,10 +116,10 @@ utils.py             共享格式化工具（日期/时限/内存/文件名）
   附件名/文件名含下划线（如 `ex_dream`）会触发 `Missing $` →
   `-halt-on-error` 中止 → afterlastpage 钩子不跑 → minted batch
   不执行 → 全部样例变 `<MINTED>` 占位（连环故障）。
-- **markdown 解析 corner case 优先迁移而非补丁**：手写解析器
-  （`markdown_latex.py`）持续踩坑（`>「」` 无空格、`::::` 折叠块、
-  `_x_` 斜体）；再遇新 corner case 时优先实施 `docs/TODO.md` 的
-  markdown-it-py 迁移。
+- **markdown 解析已迁移 markdown-it-py**（2026-08-07，见
+  `docs/implementation.md` 的「Markdown→LaTeX 转换」章节）：解析归
+  标准库，洛谷方言在预处理/渲染层处理。再遇渲染 corner case 时优先
+  在预处理层或渲染层解决，不要回退手写解析器。
 
 - **tabularray 与 tabularx 冲突**：同一文档加载两者时，`>{\centering\arraybackslash}X`
   列格式报错；封面表格用 tabularx + `\multicolumn`，题面表格用 tabularray。
