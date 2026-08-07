@@ -86,10 +86,11 @@ def main():
     doc = fitz.open(HERE / PDF_NAME)
     doc[0].get_pixmap(dpi=100).save(HERE / "cover.png")
     doc[1].get_pixmap(dpi=100).save(HERE / "page-statement.png")
-    # 第一题末页：含「样例 1 解释」的页（数据范围表格/提示，第一题独有）
+    # 第一题末页：第一个【提示】节所在页（第一题的提示是其最后一节，
+    # 展示示例代码/嵌套列表/加重号）
     for pi in range(1, len(doc)):
         t = doc[pi].get_text().replace(" ", "").replace("\n", "")
-        if "样例1解释" in t:
+        if "【提示】" in t:
             doc[pi].get_pixmap(dpi=100).save(HERE / "page-tail.png")
             break
     print("截图已更新")

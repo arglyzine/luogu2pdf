@@ -17,7 +17,7 @@
 
 ![题面首页：节标题 / 公式 / 引用块 / 样例框 / 文件 IO](example/page-statement.png)
 
-![第一题末页：数据范围表 / 样例解释 / 提示（加重号）](example/page-tail.png)
+![第一题末页：示例代码高亮 / 嵌套列表 / 提示](example/page-tail.png)
 
 完整 PDF：[example/example.pdf](example/example.pdf)（虚构题面，仅演示版式）。 `example/` 中的 PDF 与截图由脚本一键生成：
 
