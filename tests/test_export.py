@@ -20,10 +20,10 @@ def test_export_samples(tmp_path):
     assert n == 3
     d1 = tmp_path / "data" / "t1"
     assert (d1 / "1.in").read_text() == "1 2\n"
-    assert (d1 / "1.out").read_text() == "3\n"
+    assert (d1 / "1.ans").read_text() == "3\n"
     assert (d1 / "2.in").read_text() == "4\n"
     d2 = tmp_path / "data" / "t2"
-    assert (d2 / "1.out").read_text() == "1\n"
+    assert (d2 / "1.ans").read_text() == "1\n"
     assert not (tmp_path / "data" / "t3").exists()
 
 
@@ -32,14 +32,15 @@ def test_export_samples_newline_appended(tmp_path):
     d = _problem("P1", "题一", 1, [["2", "2"]])
     export_samples([d], tmp_path)
     assert (tmp_path / "data" / "t1" / "1.in").read_text() == "2\n"
-    assert (tmp_path / "data" / "t1" / "1.out").read_text() == "2\n"
+    assert (tmp_path / "data" / "t1" / "1.ans").read_text() == "2\n"
 
 
 def test_export_samples_english_name(tmp_path):
     d = Problem(pid="P1", title="题一", english="past", index=1,
                 md_samples=[["a\n", "b\n"]])
     export_samples([d], tmp_path)
-    assert (tmp_path / "data" / "past" / "1.in").exists()
+    assert (tmp_path / "data" / "past" / "past1.in").exists()
+    assert (tmp_path / "data" / "past" / "past1.ans").exists()
 
 
 def test_export_samples_missing_output(tmp_path):
@@ -47,7 +48,7 @@ def test_export_samples_missing_output(tmp_path):
     d = Problem(pid="P1", title="题一", index=1, md_samples=[["x\n"]])
     export_samples([d], tmp_path)
     assert (tmp_path / "data" / "t1" / "1.in").exists()
-    assert not (tmp_path / "data" / "t1" / "1.out").exists()
+    assert not (tmp_path / "data" / "t1" / "1.ans").exists()
 
 
 def test_write_contest_snapshot(tmp_path):

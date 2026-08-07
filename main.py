@@ -464,15 +464,19 @@ def export_samples(datas, out_dir):
             continue
         pdir = data_dir / d.exec_name
         pdir.mkdir(parents=True, exist_ok=True)
+        # 文件名：有英文名时按官方风格 {english}{n}.in/.ans，否则 {n}.in/.ans
+        # （.ans 为答案文件，NOIP 数据包惯例）
+        stem = d.english_name or ""
         for n, pair in enumerate(samples, 1):
             inp, outp = pair[0], pair[1] if len(pair) > 1 else ""
-            write(pdir / f"{n}.in", inp)
+            write(pdir / f"{stem}{n}.in", inp)
             if outp:
-                write(pdir / f"{n}.out", outp)
+                write(pdir / f"{stem}{n}.ans", outp)
             count += 1
     if count:
         log.info("样例数据已导出: %s（%d 组）", _rel(data_dir), count)
     return count
+
 
 def _print_code_tips(datas):
     """抓取后的提示：题面含代码块 / 附件为数据文件时提醒用户。"""

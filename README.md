@@ -115,10 +115,10 @@ output/示例比赛/
 ├── 第3题-demo3.pdf
 ├── 第4题-demo4.pdf
 ├── 示例比赛-题面合集.pdf         # 封面 + 全部题目
-├── data/                        # 样例数据，每个可执行文件名一个目录
-│   └── t1/                      # 样例按 {n}.in / {n}.out 命名
+├── data/                        # 样例数据与附件，每个可执行文件名一个目录
+│   └── t1/                      # 样例 {n}.in/.ans；有 english 时 {english}{n}.in/.ans
 │       ├── 1.in
-│       ├── 1.out
+│       ├── 1.ans
 │       ├── 2.in
 │       └── 2.out
 ├── html/                        # HTML 后端中间文件（含 fonts/，目录自包含）
