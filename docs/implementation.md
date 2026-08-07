@@ -32,20 +32,35 @@ model.py（Problem / Contest，双后端共享数据模型）
 - `assets/extract.js` 是 JS，无法 import，以 `rules.py` 的约定保持一致（行合并仅 `^`）。
 - 两端行为有差异时优先改共享层，避免"改一端忘另一端"。
 
-## 模块结构
+## 仓库结构
 
-| 模块 | 职责 |
-|------|------|
-| `main.py` | CLI 编排：配置校验、抓取、双后端分发 |
-| `model.py` | Problem / Contest 数据模型 |
-| `luogu.py` | 抓取（Playwright；提取脚本在 `assets/extract.js`） |
-| `template.py` | HTML 后端渲染 |
-| `markdown_latex.py` | Markdown→LaTeX 转换器（纯函数，测试覆盖最全） |
-| `latex_doc.py` | LaTeX 文档组装 |
-| `compile.py` | xelatex 编译（页数漂移时自动补第三遍） |
-| `overlay.py` | HTML 合集后处理（reportlab 叠页眉/页码） |
-| `rules.py` | 双后端共享语义规则 |
-| `utils.py` | 共享格式化工具 |
+```text
+luogu2pdf/
+├── main.py                  # CLI 入口：配置校验、抓取、双后端分发
+├── model.py                 # Problem / Contest 数据模型
+├── luogu.py                 # 抓取（Playwright；提取脚本在 assets/extract.js）
+├── template.py              # HTML 后端渲染（templates/*.html.j2 + style.css.j2）
+├── markdown_latex.py        # Markdown→LaTeX 转换器（markdown-it-py，纯函数）
+├── latex_doc.py             # LaTeX 文档组装（templates/*.tex.j2）
+├── compile.py               # xelatex 编译（页数漂移时自动补第三遍）
+├── overlay.py               # HTML 合集后处理：按题叠页眉/页码（reportlab）
+├── rules.py                 # 双后端共享语义规则（hint 拆分/样例解释/数据范围/^ 标记）
+├── utils.py                 # 共享格式化工具（日期/时限/内存/文件名）
+├── download_assets.py       # 重建字体/KaTeX 资源（assets/fonts、assets/katex）
+├── assets/                  # 页面提取脚本（extract.js）与 LaTeX 模板（latex/statement.cls）
+├── templates/               # Jinja2 模板（HTML 与 LaTeX 版式）
+├── tests/                   # pytest 用例（按模块对应）
+├── example/                 # 自包含示例：build_example.py + example.json + 生成物
+├── docs/                    # 实现说明（本文件）与 TODO
+├── AGENTS.md                # AI 协作文档：环境/架构/已知坑/约定
+├── README.md / LICENSE
+├── contest.example.json     # 比赛配置模板（复制为 contest.json 使用，不入库）
+├── .luogu_cookies.example.json  # 附件登录态 cookie 模板（复制为 .luogu_cookies.json）
+└── .gitignore
+```
+
+运行时生成（不入库）：`.work/`（抓取缓存与中间产物）、`output/`（比赛输出）、
+`.venv/`（虚拟环境）。
 
 依赖方向：`utils`/`model` → `markdown_latex` → `latex_doc`/`template`/`compile`/`overlay` → `main`。
 
