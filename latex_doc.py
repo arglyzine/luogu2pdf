@@ -91,7 +91,9 @@ def build_statement_tex(problem, contest, index, total, images):
 
     return _env.get_template("statement.tex.j2").render(
         name=name,
-        en=problem.english_name,
+        # 英文名嵌入 LaTeX（\englishname{...}），特殊字符需转义
+        # （如 english="ex_dream" 的下划线曾触发 Missing $）
+        en=_escape_special(problem.english_name),
         sections=parts,
     )
 
@@ -103,7 +105,10 @@ def _sample_block(text):
     出现空行）；minted 3.8 对无尾随换行的最后一行不重复。"""
     escaped = text.rstrip("\n")
     escaped = escaped.replace("\\", r"\textbackslash{}")
-    return _env.get_template("sample.tex.j2").render(content=escaped)
+    # 样例数据行短，不折行（breaklines 会让 fvextra 的 parbox 首尾
+    # strut 膨胀上下 padding，样例框保持紧凑）
+    return _env.get_template("sample.tex.j2").render(
+        content=escaped, lang="text", wrap=False)
 
 
 def build_cover_tex(contest, problems, images):
