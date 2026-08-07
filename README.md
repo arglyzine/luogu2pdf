@@ -51,6 +51,14 @@ LaTeX 后端需要：
 
 ## 组一场新模拟赛
 
+（可选）若题目带附件（如参考代码、数据包），下载需要登录态——复制
+`.luogu_cookies.example.json` 为 `.luogu_cookies.json`，填入浏览器中洛谷的
+`__client_id` 与 `_uid` cookie（仅用于附件下载，不入库；题面与样例抓取不需要登录）：
+
+```bash
+cp .luogu_cookies.example.json .luogu_cookies.json   # 填入 cookie 值
+```
+
 复制 `contest.example.json` 为 `contest.json`，然后编辑：
 
 ```json

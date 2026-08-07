@@ -145,7 +145,8 @@
         name: pr.name || '',
         content: pr.contenu || pr.content || {},
         samples: pr.samples || [],
-        limits: pr.limits || {}
+        limits: pr.limits || {},
+        attachments: pr.attachments || []
       };
     } catch (e) {}
   }

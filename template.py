@@ -144,6 +144,15 @@ def _sections_html(problem):
                     "cls": "marked datarange" if t == "数据范围" else "marked",
                 })
 
+    # 附件：题面末尾列文件名（文件本体在 data/<exec_name>/ 与下发 zip）
+    if problem.attachments:
+        items = "".join(
+            f'<p><b><i>{escape(a["filename"])}</i></b>'
+            + (f"（{a['size'] / 1024:.1f} KB）" if a.get("size") else "")
+            + "</p>"
+            for a in problem.attachments)
+        parts.append({"title": "附件", "content": f'<div class="lfe-marked">{items}</div>'})
+
     return _env.get_template("sections.html.j2").render(sections=parts)
 
 

@@ -80,6 +80,15 @@ def build_statement_tex(problem, contest, index, total, images):
                 title = htitle or classify_hint(hbody)
                 sec(title, md_to_latex(hbody, images))
 
+    # 附件：题面末尾列文件名（文件本体在 data/<exec_name>/ 与下发 zip）
+    if problem.attachments:
+        items = "".join(
+            rf"\item \filename{{{_escape_special(a['filename'])}}}"
+            + (f"（{a['size'] / 1024:.1f} KB）" if a.get("size") else "")
+            + "\n"
+            for a in problem.attachments)
+        sec("附件", r"\begin{itemize}" + items + r"\end{itemize}")
+
     return _env.get_template("statement.tex.j2").render(
         name=name,
         en=problem.english_name,

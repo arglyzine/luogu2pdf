@@ -22,6 +22,7 @@ class Problem:
     content: dict = field(default_factory=dict)    # background/description/formatI/formatO/hint
     limits: dict = field(default_factory=dict)     # {"time": [ms...], "memory": [KB...]}
     md_samples: list = field(default_factory=list) # [[输入, 输出], ...]
+    attachments: list = field(default_factory=list)  # [{filename, size, local}]
     statement_tex: str = ""                   # LaTeX 题面片段（生成时填充）
 
     @property

@@ -72,6 +72,15 @@ utils.py             共享格式化工具（日期/时限/内存/文件名）
   - `samples`：`[["输入","输出"], ...]`；`limits`：`{"time":[ms...],"memory":[KB...]}`
   - `attachments`：`[{id, filename, size, uploadTime, downloadLink}]`，
     `downloadLink` 为相对路径，拼 `https://www.luogu.com.cn` 下载
+- **附件登录态**：附件下载 API（downloadAttachment）需登录（匿名 302/
+  无 cookie 403 UserNotLoggedIn）。登录态来自项目根 `.luogu_cookies.json`
+  （`__client_id`/`_uid`，gitignore，example 模板入库），luogu.py 注入
+  Playwright context；无配置时附件下载失败仅 warning，不影响抓取。
+  下载后的附件：`.work/attachments/<pid>/`（缓存）→
+  `output/<比赛名>/data/<exec_name>/`（导出，与样例同目录）→ 下发 zip；题面
+  末尾生成【附件】节（LaTeX `\filename` 加粗斜体 / HTML `<b><i>`）。
+  抓取后 main 会提示：题面含代码块（PDF 内不便复制，提醒配置附件）、
+  附件为 *.in/.out/.ans 数据文件（提醒配置 english 使目录名与题对应）。
   - 页面 DOM 的 `h2.title`、`.problem` 渲染区（sections）与附件卡片
     不在 JSON 里，仍从 DOM 提取（extract.js）
 - **模板改版式**：改 `templates/*.j2`（HTML）或 `assets/latex/statement.cls`
