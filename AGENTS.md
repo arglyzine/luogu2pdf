@@ -89,6 +89,23 @@ utils.py             共享格式化工具（日期/时限/内存/文件名）
   `pytest tests/`；`tests/test_integration.py` 依赖 `.work/raw_*.json`
   （先跑过一次抓取），缺失自动跳过。
 
+## Git 工作流与提交约定
+
+- **分支**：GitHub Flow——`main` 永远可发布；功能在 `feat/*` 分支开发，
+  合并用 `--no-ff`（保留功能边界），合并后删除分支。
+- **提交信息**：Conventional Commits——`feat:`/`fix:`/`docs:`/`test:`/
+  `chore:`（必要时 `!`/`BREAKING CHANGE:`）。
+- **版本**：SemVer——`feat`→minor、`fix`→patch、`breaking`→major
+  （0.x 阶段 minor 递增功能）；发布用 annotated tag + `gh release`
+  （notes 用文件）。
+- **提交纪律**：每次提交单一逻辑——验收反馈的修复也拆开提交
+  （如 `fix: 附件节换行`、`fix: 样例不折行`），不要攒横切功能的大
+  commit（横切后合并前重组必须拆 hunk，代价高）。
+- **合并前重组**：规划 commit 分组 → 逐文件检查归属；交叉文件用
+  「中间版本法」（checkout 起点版 + 脚本提取插入），不要用
+  `git add -p` 管道（hunk 顺序脆弱）；`amend` 只碰 HEAD，多 commit
+  调整用 `rebase -i`；历史无保留价值时直接 squash 成一个大 commit。
+
 ## 已知坑（改动前必读）
 
 - **tabularray 与 tabularx 冲突**：同一文档加载两者时，`>{\centering\arraybackslash}X`
