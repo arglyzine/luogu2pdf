@@ -285,12 +285,11 @@ def md_to_latex(md, images):
             out.append(_list_to_tex(kind, items))
         elif kind == "code":
             # 代码块 → minted 语法高亮（语言标记来自围栏，如 ```cpp）；
-            # 无语言 → text。反斜杠转义与样例框一致（minted 的
-            # commandchars 会消费 \）；样例框样式由 statement.cls 的
-            # \BeforeBeginEnvironment{minted} 统一包裹
+            # 无语言 → text。minted 内裸反斜杠正常（实测 \'\n\' 正确渲染，
+            # 无需转义——\textbackslash{} 在 verbatim 模式反而显示为字面文本）；
+            # 样例框样式由 statement.cls 的 \BeforeBeginEnvironment{minted} 统一包裹
             lang = content[0] if isinstance(content, tuple) else ""
             body = content[1] if isinstance(content, tuple) else content
-            body = body.replace("\\", r"\textbackslash{}")
             # 代码块需要长行折行（breaklines；样例框不折行保持紧凑）
             out.append(_env.get_template("sample.tex.j2").render(
                 content=body, lang=lang or "text", wrap=True))
