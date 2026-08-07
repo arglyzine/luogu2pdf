@@ -31,6 +31,9 @@ def classify_hint(text):
     输入可为渲染后 HTML 或 Markdown 源（统一去标签后判断）。
     """
     plain = re.sub(r"<[^>]+>", " ", text)
+    # 公式标记容错：洛谷常写「对于 $100\\%$ 的数据」（$100\%$ → 100%），
+    # 否则数据范围节会被误判为提示（出现两个【提示】节）
+    plain = re.sub(r"\\?%", "%", plain).replace("$", "")
     return "数据范围" if DATARANGE_RE.search(plain) else "提示"
 
 

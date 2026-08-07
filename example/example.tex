@@ -230,6 +230,56 @@ $$B = \sum_{i=1}^{n} a_i \cdot \operatorname{lowbit}(a_i)$$
 78
 79
 80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
 \end{minted}
 
 
@@ -240,7 +290,7 @@ $$B = \sum_{i=1}^{n} a_i \cdot \operatorname{lowbit}(a_i)$$
 \end{minted}
 
 
-\subsection[ 提示 ]{【 提示 】}
+\subsection[ 数据范围 ]{【 数据范围 】}
 
 对于 $100\%$ 的数据，满足 $1 \le n \le 10^5$，$1 \le a_i \le 10^9$。
 
@@ -266,9 +316,42 @@ $$B = \sum_{i=1}^{n} a_i \cdot \operatorname{lowbit}(a_i)$$
 
 
 
+\subsection[ 示例代码 ]{【 示例代码 】}
+
+本题提供一份数据生成器作为参考，选手可在其基础上编写完整程序：
+
+\begin{minted}[linenos, breaklines]{cpp}
+#include <bits/stdc++.h>
+using namespace std;
+struct RandomNumberGenerator {
+    unsigned long long state, a = 6364136223846793005ULL, c = 1442695040888963407ULL;
+    explicit RandomNumberGenerator(unsigned long long seed) : state(seed) {}
+    unsigned long long next() { return state = state * a + c; }
+};
+int main() {
+    ios_with_stdio(false); cin.tie(nullptr);
+    int n, k, seed; cin >> n >> k >> seed;
+    RandomNumberGenerator rnd(seed);
+    for (int i = 1; i <= n; ++i) cout << (rnd.next() % 1000000000ULL + 1) << (i == n ? '\n' : ' ');
+    return 0;
+}
+\end{minted}
+
+
 \subsection[ 提示 ]{【 提示 】}
 
 \stress{注意}：答案需要对 $998244353$ 取模。
+
+本题的评测环境为 Linux x86\_64，选手需要注意以下事项：
+
+\begin{itemize}
+  \item 使用 \texttt{long long} 类型存储中间结果；
+\begin{itemize}
+  \item 乘法结果可能超过 $2^{31}$；
+  \item 取模运算应使用常量模数而非字面量。
+\end{itemize}
+  \item 避免在循环内进行不必要的 I/O 操作。
+\end{itemize}
 
 
 
@@ -369,7 +452,7 @@ $$B = \sum_{i=1}^{n} a_i \cdot \operatorname{lowbit}(a_i)$$
 \end{minted}
 
 
-\subsection[ 提示 ]{【 提示 】}
+\subsection[ 数据范围 ]{【 数据范围 】}
 
 对于 $100\%$ 的数据，满足 $1 \le n, m \le 10^3$，格子上的数不超过 $10^4$。
 

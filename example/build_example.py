@@ -86,12 +86,21 @@ def main():
     doc = fitz.open(HERE / PDF_NAME)
     doc[0].get_pixmap(dpi=100).save(HERE / "cover.png")
     doc[1].get_pixmap(dpi=100).save(HERE / "page-statement.png")
-    # 第一题末页：含「样例 1 解释」的页（数据范围表格/提示，第一题独有）
-    for pi in range(1, len(doc)):
+    # 第一题末页两张截图（数据范围 → 第一题末尾）：
+    # 页号硬编码（0-based），对应当前 example.json 的布局——
+    # 第 7 页：数据范围表/样例解释/示例代码；第 8 页：提示/嵌套列表。
+    # 修改 example.json 后若页号失效，渲染会打印警告（不静默出错）。
+    for pi, fname, expect in (
+        (6, "page-tail-1.png", "数据范围"),
+        (7, "page-tail-2.png", "提示"),
+    ):
+        if pi >= len(doc):
+            print(f"警告: 截图页 {pi + 1} 超出文档页数（{len(doc)}），请更新 build_example.py 的页号")
+            continue
         t = doc[pi].get_text().replace(" ", "").replace("\n", "")
-        if "样例1解释" in t:
-            doc[pi].get_pixmap(dpi=100).save(HERE / "page-tail.png")
-            break
+        if f"【{expect}】" not in t:
+            print(f"警告: 截图页 {pi + 1} 未找到【{expect}】，请更新 build_example.py 的页号")
+        doc[pi].get_pixmap(dpi=100).save(HERE / fname)
     print("截图已更新")
 
 
