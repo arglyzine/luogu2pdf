@@ -6,4 +6,3 @@ pytest>=8.0
 reportlab>=4.0
 rich>=13.0
 markdown-it-py>=4.0
-mdit-py-plugins>=0.4
