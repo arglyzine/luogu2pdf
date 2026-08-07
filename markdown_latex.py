@@ -251,7 +251,7 @@ def _render_tokens(tokens, images, math_tokens):
         elif t.type == "fence":
             info = (t.info or "").strip()
             lang = info.split()[0] if info else ""
-            content = t.content.replace("\\", r"\textbackslash{}")
+            content = t.content
             # 代码块需要长行折行（breaklines；样例框不折行保持紧凑）
             out.append(_env.get_template("sample.tex.j2").render(
                 content=content, lang=lang or "text", wrap=True))
@@ -267,7 +267,7 @@ def _render_tokens(tokens, images, math_tokens):
             out.append(_render_heading(t.tag, tokens, i, images, math_tokens))
             i += 3
         elif t.type == "code_block":
-            content = t.content.replace("\\", r"\textbackslash{}")
+            content = t.content
             out.append(_env.get_template("sample.tex.j2").render(
                 content=content, lang="text", wrap=True))
             i += 1
