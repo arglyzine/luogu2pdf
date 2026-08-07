@@ -122,7 +122,7 @@ output/示例比赛/
 │       ├── 1.in
 │       ├── 1.ans
 │       ├── 2.in
-│       └── 2.out
+│       └── 2.ans
 ├── html/                        # HTML 后端中间文件（含 fonts/，目录自包含）
 ├── package.sh                   # 一键重新编译 + 打包下发 zip
 └── tex/                         # LaTeX 源码（--backend latex 时生成）
