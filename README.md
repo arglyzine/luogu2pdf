@@ -85,7 +85,7 @@ cp .luogu_cookies.example.json .luogu_cookies.json   # 填入 cookie 值
 | `date` | 比赛日期，封面显示为「2026 年 8 月 3 日」 |
 | `time` / `duration` | 比赛时间，封面显示为「09:00 ～ 13:00（4 小时）」 |
 | `problems[].pid` | 洛谷题号（仅内部抓取用，不会出现在题面/文件名中） |
-| `problems[].english` | 可选，英文名（显示为「题名（english）」，封面可执行文件名）；不填则标题只显示中文名、可执行文件名用 `t1`/`t2` |
+| `problems[].english` | 可选，英文名（显示为「题名（english）」，封面可执行文件名、样例数据文件名 `{english}{n}.in/.ans`、附件目录名）；与 `io` 独立——配了 english 但未配 `io` 时仍为标准 IO。不填则标题只显示中文名、可执行文件名用 `t1`/`t2` |
 | `problems[].type` | 可选，题目类型，默认「传统型」 |
 | `problems[].io` | 可选，`"file"` 表示文件 IO（输入/输出走 `{english}.in` / `{english}.out`，封面与题面相应显示文件名）；默认标准 IO。文件 IO 必须配置 `english` |
 | `notes` | 可选，封面注意事项列表，不填用 NOIP 风格默认值 |
